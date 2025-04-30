@@ -52,6 +52,7 @@ toggleZenMode() {
 
         try WinSetAlwaysOnTop(false, win)
         try DllCall("ShowWindow", "ptr", win, "int", 1)  ; SW_SHOWNORMAL
+        win := WinGetID("A")  ; Обновляем идентификатор активного окна после ShowWindow
         try WinSetAlwaysOnTop(true, win)
         try WinActivate(win)
 
