@@ -11,8 +11,8 @@
 ; -----------------------------------------
 
 ; ---------- НАСТРОЙКА ----------
-global marginH := 0.25
-global marginV := 0.10
+global marginH := 0.30
+global marginV := 0.05
 global overlayAlpha := 240            ; 0-255 (≈94 %)
 
 global hotkeyList := ["^!z", "^F11", "F8", "!F2", "F1"]
