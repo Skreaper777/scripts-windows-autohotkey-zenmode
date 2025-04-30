@@ -13,7 +13,7 @@ global WinData := Map()
     id := WinData["id"]
     if id {
         try WinSetAlwaysOnTop(false, id)
-        try DllCall("ShowWindow", "ptr", id, "int", 9)
+        try DllCall("ShowWindow", "ptr", id, "int", 1)  ; SW_SHOWNORMAL
         flags := 0x0040 | 0x0020 | 0x0004 ; SWP_SHOWWINDOW | SWP_FRAMECHANGED | SWP_NOZORDER
             try DllCall("SetWindowPos", "ptr", id, "ptr", 0, "int", WinData["x"], "int", WinData["y"], "int", WinData["w"], "int", WinData["h"], "uint", flags)
     }
@@ -51,7 +51,7 @@ toggleZenMode() {
         TrayTip "Zen Mode", "newX:" newX ", newW:" newW ", screenW:" screenW, 1
 
         try WinSetAlwaysOnTop(false, win)
-        try DllCall("ShowWindow", "ptr", win, "int", 9)
+        try DllCall("ShowWindow", "ptr", win, "int", 1)  ; SW_SHOWNORMAL
         try WinSetAlwaysOnTop(true, win)
         try WinActivate(win)
 
