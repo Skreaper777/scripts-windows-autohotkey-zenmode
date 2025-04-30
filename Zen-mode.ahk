@@ -45,8 +45,10 @@ Hotkey("^!x", (*) => disableZenMode())       ; аварийный выход
     global wasZenDuringAlt
     if wasZenDuringAlt {
         wasZenDuringAlt := false
+        Sleep 75   ; даём фокусу устаканиться
         toggleZenMode()
     }
+}
 }
 
 ; ---------- ЛКМ по шторке ----------
@@ -81,7 +83,7 @@ toggleZenMode() {
     savedWin := Map("id",hwnd,"x",ox,"y",oy,"w",ow,"h",oh,"max",wasMax)
 
     if (wasMax = 1)
-        WinRestore("ahk_id " hwnd)
+        WinRestore(hwnd)
     Sleep 50
 
     ; --- центрируем внутри своего монитора ---
@@ -95,14 +97,14 @@ toggleZenMode() {
     newX := mL + Round(monW * marginH)
     newY := mT + Round(monH * marginV)
 
-    WinMove(newX, newY, newW, newH, "ahk_id " hwnd)
+    WinMove(newX, newY, newW, newH, hwnd)
 
     ; --- полноэкранная шторка ---
     virtL := SysGet(76), virtT := SysGet(77)
     virtW := SysGet(78), virtH := SysGet(79)
     createFullOverlay(virtL, virtT, virtW, virtH)
 
-    WinSetAlwaysOnTop(1, "ahk_id " hwnd)
+    WinSetAlwaysOnTop(1, hwnd)
     WinActivate("ahk_id " hwnd)
 
     zen := true
@@ -121,10 +123,10 @@ disableZenMode() {
     if WinExist("ahk_id " hwnd) {
         Try {
             if (savedWin["max"] = 1)
-                WinMaximize("ahk_id " hwnd)
+                WinMaximize(hwnd)
             else
-                WinMove(savedWin["x"], savedWin["y"], savedWin["w"], savedWin["h"], "ahk_id " hwnd)
-            WinSetAlwaysOnTop(0, "ahk_id " hwnd)
+                WinMove(savedWin["x"], savedWin["y"], savedWin["w"], savedWin["h"], hwnd)
+            WinSetAlwaysOnTop(0, hwnd)
         }
     }
 
