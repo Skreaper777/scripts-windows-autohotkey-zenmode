@@ -1,6 +1,9 @@
 ﻿#Requires AutoHotkey v2.0
 #SingleInstance Force
 
+global VarSetCapacity, NumPut
+
+
 ; =========================================
 ;  Zen‑Mode v6.3 — Alt‑Tab «handoff» без WinEventHook
 ; =========================================
