@@ -9,13 +9,12 @@ global WinData := Map()
 }
 
 ^!x::{
-    ; Экстренное отключение режима и снятие "поверх всех"
     TrayTip "Zen Mode", "Экстренное отключение Zen Mode", 1
     id := WinData["id"]
     if id {
         try WinSetAlwaysOnTop(false, id)
-        try DllCall("ShowWindow", "ptr", id, "int", 9) ; SW_RESTORE
-        try DllCall("SetWindowPos", "ptr", id, "ptr", 0, "int", WinData["x"], "int", WinData["y"], "int", WinData["w"], "int", WinData["h"], "uint", 0x0040)
+        try DllCall("ShowWindow", "ptr", id, "int", 9)
+        try DllCall("SetWindowPos", "ptr", id, "ptr", 0, "int", WinData["x"], "int", WinData["y"], "int", WinData["w"], "int", WinData["h"], "uint", 0)
     }
     for name in ["L", "R", "T", "B"] {
         guiObj := GuiGet("Overlay" . name)
@@ -27,58 +26,59 @@ global WinData := Map()
 
 toggleZenMode() {
     global toggle, WinData
-
     toggle := !toggle
 
     if toggle {
-        try {
-            win := WinGetID("A")
-            if !win {
-                TrayTip "Zen Mode", "❌ Активное окно не найдено", 1
-                toggle := false
-                return
-            }
-            x := 0, y := 0, w := 0, h := 0
-            WinGetPos(&x, &y, &w, &h, win)
-            WinData := Map("id", win, "x", x, "y", y, "w", w, "h", h)
-
-            screenW := SysGet(78)
-            screenH := SysGet(79)
-
-            newW := Round(screenW * 0.5)
-            newH := h
-            newX := Round((screenW - newW) / 2)
-            newY := y
-
-            try WinSetAlwaysOnTop(false, win)  ; сброс закрепления
-            try DllCall("ShowWindow", "ptr", win, "int", 9) ; SW_RESTORE
-            try WinSetAlwaysOnTop(true, win)
-            try WinActivate(win)
-
-            result := DllCall("SetWindowPos", "ptr", win, "ptr", 0, "int", newX, "int", newY, "int", newW, "int", newH, "uint", 0x0040)
-            if (result = 0) {
-                err := DllCall("GetLastError")
-                TrayTip "Zen Mode", "Ошибка SetWindowPos. Код: " err, 1
-            }
-
-            createOverlay("L", 0, 0, newX, screenH)
-            rightX := newX + newW
-            rightW := screenW - rightX
-            createOverlay("R", rightX, 0, rightW, screenH)
-            createOverlay("T", newX, 0, newW, newY)
-            bottomY := newY + newH
-            bottomH := screenH - bottomY
-            createOverlay("B", newX, bottomY, newW, bottomH)
-        } catch {
-            TrayTip "Zen Mode", "⚠️ Ошибка при запуске Zen Mode", 1
+        win := WinGetID("A")
+        if !win {
+            TrayTip "Zen Mode", "❌ Активное окно не найдено", 1
             toggle := false
+            return
         }
+        x := 0, y := 0, w := 0, h := 0
+        WinGetPos(&x, &y, &w, &h, win)
+        WinData := Map("id", win, "x", x, "y", y, "w", w, "h", h)
+
+        screenW := SysGet(78)
+        screenH := SysGet(79)
+
+        newW := Round(screenW * 0.5)
+        newH := h
+        newX := Round((screenW - newW) / 2)
+        newY := y
+
+        TrayTip "Zen Mode", "newX:" newX ", newW:" newW ", screenW:" screenW, 1
+
+        try WinSetAlwaysOnTop(false, win)
+        try DllCall("ShowWindow", "ptr", win, "int", 9)
+        try WinSetAlwaysOnTop(true, win)
+        try WinActivate(win)
+
+        result := DllCall("SetWindowPos", "ptr", win, "ptr", 0, "int", newX, "int", newY, "int", newW, "int", newH, "uint", 0)
+        if (result = 0) {
+            err := DllCall("GetLastError")
+            TrayTip "Zen Mode", "Ошибка SetWindowPos. Код: " err, 1
+        }
+
+        createOverlay("L", 0, 0, newX, screenH)
+
+        rightX := newX + newW
+        rightW := screenW - rightX
+        if (rightW > 0)
+            createOverlay("R", rightX, 0, rightW, screenH)
+
+        createOverlay("T", newX, 0, newW, newY)
+
+        bottomY := newY + newH
+        bottomH := screenH - bottomY
+        createOverlay("B", newX, bottomY, newW, bottomH)
+
     } else {
         id := WinData["id"]
         if id {
             try WinSetAlwaysOnTop(false, id)
-            try DllCall("ShowWindow", "ptr", id, "int", 9) ; SW_RESTORE
-            try DllCall("SetWindowPos", "ptr", id, "ptr", 0, "int", WinData["x"], "int", WinData["y"], "int", WinData["w"], "int", WinData["h"], "uint", 0x0040)
+            try DllCall("ShowWindow", "ptr", id, "int", 9)
+            try DllCall("SetWindowPos", "ptr", id, "ptr", 0, "int", WinData["x"], "int", WinData["y"], "int", WinData["w"], "int", WinData["h"], "uint", 0)
         }
         for name in ["L", "R", "T", "B"] {
             guiObj := GuiGet("Overlay" . name)
@@ -105,7 +105,6 @@ WinSetTransparentAnimated(gui, finalAlpha, steps := 15) {
     }
 }
 
-; Хранилище GUI объектов, по имени
 GuiMap := Map()
 GuiSet(name, obj) => GuiMap[name] := obj
 GuiGet(name) => GuiMap.Has(name) ? GuiMap[name] : ""
