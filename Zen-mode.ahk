@@ -77,7 +77,7 @@ toggleZenMode() {
     newX := mL + Round(monW * marginH)
     newY := mT + Round(monH * marginV)
 
-    WinActivate("ahk_id " hwnd)("ahk_id " hwnd)
+    WinActivate("ahk_id " hwnd)
     WinMove(newX, newY, newW, newH, "ahk_id " hwnd)
 
     ; --- создаём одну полноэкранную шторку ---
@@ -89,8 +89,6 @@ toggleZenMode() {
     WinSetAlwaysOnTop(1, "ahk_id " hwnd)
     WinActivate("ahk_id " hwnd)
 
-    ; поднимаем окно снова поверх шторки
-    WinActivate("ahk_id " hwnd)
     zen := true
 }
 
