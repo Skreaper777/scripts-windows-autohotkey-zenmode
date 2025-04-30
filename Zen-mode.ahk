@@ -99,7 +99,7 @@ createOverlay(name, x, y, w, h) {
 WinSetTransparentAnimated(gui, finalAlpha, steps := 15) {
     hwnd := gui.Hwnd
     Loop steps {
-        alpha := (A_Index / steps) * finalAlpha
+        alpha := Round((A_Index / steps) * finalAlpha)
         WinSetTransparent(alpha, hwnd)
         Sleep 10
     }
