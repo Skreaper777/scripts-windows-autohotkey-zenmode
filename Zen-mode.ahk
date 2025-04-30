@@ -49,7 +49,6 @@ Hotkey("^!x", (*) => disableZenMode())       ; аварийный выход
         toggleZenMode()
     }
 }
-}
 
 ; ---------- ЛКМ по шторке ----------
 OnMessage(0x201, OnOverlayClick)   ; WM_LBUTTONDOWN
