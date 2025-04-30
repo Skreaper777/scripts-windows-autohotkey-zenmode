@@ -55,6 +55,11 @@ toggleZenMode() {
         try WinSetAlwaysOnTop(true, win)
         try WinActivate(win)
 
+        ; Принудительное снятие стиля WS_MAXIMIZE, если он есть
+        style := DllCall("GetWindowLongPtr", "ptr", win, "int", -16, "ptr")
+        style := style & ~0x01000000  ; WS_MAXIMIZE
+        DllCall("SetWindowLongPtr", "ptr", win, "int", -16, "ptr", style)
+
         flags := 0x0040 | 0x0020 | 0x0004 ; SWP_SHOWWINDOW | SWP_FRAMECHANGED | SWP_NOZORDER
         result := DllCall("SetWindowPos", "ptr", win, "ptr", 0, "int", newX, "int", newY, "int", newW, "int", newH, "uint", flags)
         if (result = 0) {
