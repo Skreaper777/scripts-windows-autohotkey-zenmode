@@ -2,7 +2,7 @@
 #SingleInstance Force
 
 ; =========================================
-;  Zen‑Mode v7.2 — авто‑переключение через WinEventHook (Alt+Tab)
+;  Zen‑Mode v7.3 — авто‑переключение через WinEventHook (Alt+Tab)
 ; =========================================
 ;  • Хоткеи включения: ^!z, ^F11, F8, !F2, F1 (блокирующий)
 ;  • Автоматически переносит затемнение на вновь активированное окно
@@ -22,6 +22,7 @@ global savedWin  := Map()         ; положение/размер + был л
 global overlayGui := ""          ; GUI‑шторка
 global zenHwnd   := 0             ; текущее окно в Zen
 global hCallHook := 0             ; дескриптор WinEventHook
+global callbackWinEvent := 0      ; объект CallbackCreate
 
 ; ---------- ГОРЯЧИЕ КЛАВИШИ ----------
 ^!z::toggleZenMode()
@@ -45,7 +46,7 @@ hCallHook := DllCall("SetWinEventHook"
 toggleZenMode() {
     global zen, savedWin, marginH, marginV, overlayGui, zenHwnd
 
-    if zen {         ; если уже включён — выключаем
+    if zen {
         disableZenMode()
         return
     }
@@ -83,7 +84,6 @@ toggleZenMode() {
     virtW := SysGet(78), virtH := SysGet(79)
     createFullOverlay(virtL, virtT, virtW, virtH)
 
-    ; --- поднимаем окно сверху ---
     WinSetAlwaysOnTop(1, "ahk_id " hwnd)
     WinActivate("ahk_id " hwnd)
 
@@ -99,11 +99,13 @@ disableZenMode() {
 
     hwnd := savedWin["id"]
     if WinExist("ahk_id " hwnd) {
-        if (savedWin["max"] = 1)
-            WinMaximize("ahk_id " hwnd)
-        else
-            WinMove(savedWin["x"], savedWin["y"], savedWin["w"], savedWin["h"], "ahk_id " hwnd)
-        WinSetAlwaysOnTop(0, "ahk_id " hwnd)
+        Try {
+            if (savedWin["max"] = 1)
+                WinMaximize("ahk_id " hwnd)
+            else
+                WinMove(savedWin["x"], savedWin["y"], savedWin["w"], savedWin["h"], "ahk_id " hwnd)
+            WinSetAlwaysOnTop(0, "ahk_id " hwnd)
+        }
     }
 
     if IsObject(overlayGui)
@@ -153,9 +155,9 @@ WinEventProc(hook,event,hwndNew,idObj,idChild,thread,time) {
     }
 }
 
-; OnExit (регистрируем после объявления функции)
-OnExit(Func("CleanupHooks"))
-
+; -----------------------------------
+; Удаляем хуки / callback при выходе
+; -----------------------------------
 CleanupHooks(*) {
     global hCallHook, callbackWinEvent
     if hCallHook
@@ -163,3 +165,5 @@ CleanupHooks(*) {
     if callbackWinEvent
         CallbackFree(callbackWinEvent)
 }
+
+OnExit(CleanupHooks)
