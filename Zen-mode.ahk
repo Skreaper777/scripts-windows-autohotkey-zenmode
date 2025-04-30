@@ -142,9 +142,7 @@ disableZenMode() {
 
 createFullOverlay(x,y,w,h) {
     global overlayGui, overlayAlpha, VarSetCapacity, NumPut
-    global overlayGui, overlayAlpha
-    if IsObject(overlayGui)
-        overlayGui.Destroy()
+
     overlayGui := Gui("-Caption +AlwaysOnTop +ToolWindow")
     overlayGui.BackColor := "Black"
     overlayGui.Show("x" x " y" y " w" w " h" h " NoActivate")
