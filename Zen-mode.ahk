@@ -2,25 +2,54 @@
 #SingleInstance Force
 
 ; =========================================
-; Zen-Mode v7.1 — авто-переключение через WinEventHook
+;  Zen‑Mode v7.2 — авто‑переключение через WinEventHook (Alt+Tab)
 ; =========================================
-; • Горячие клавиши включения/выключения: ^!z, ^F11, F8, !F2, F1 (блокирующий)
-; • Автоматический переход Zen при смене активного окна (Alt+Tab и другие способы)
-; • Полноэкранная шторка на весь виртуальный рабочий стол, окно всегда поверх
-; • Поддержка maximized для возврата в исходное состояние
-; • Multi-monitor: учёт SysGet 76-79, собственная функция GetMonitorIndex
-; -----------------------------------
-; регистрируем OnExit колбэк для снятия хука
-OnExit("CleanupHooks")
+;  • Хоткеи включения: ^!z, ^F11, F8, !F2, F1 (блокирующий)
+;  • Автоматически переносит затемнение на вновь активированное окно
+;  • Одна полноэкранная шторка (GUI) под окном, окно всегда сверху
+;  • Сохраняет/возвращает maximized‑состояние
+;  • Работает на любом мониторе (учёт SysGet 76‑79)
+; -----------------------------------------
+
+; ---------- ПАРАМЕТРЫ ----------
+global marginH := 0.25           ; доля пустоты слева/справа (0‑1)
+global marginV := 0.10           ; доля пустоты сверху/снизу (0‑1)
+global overlayAlpha := 240       ; 0‑255 прозрачность (≈94 %)
+
+; ---------- ГЛОБАЛЫ ----------
+global zen       := false         ; Zen‑режим активен?
+global savedWin  := Map()         ; положение/размер + был ли Max
+global overlayGui := ""          ; GUI‑шторка
+global zenHwnd   := 0             ; текущее окно в Zen
+global hCallHook := 0             ; дескриптор WinEventHook
+
+; ---------- ГОРЯЧИЕ КЛАВИШИ ----------
+^!z::toggleZenMode()
+^F11::toggleZenMode()
+F8::toggleZenMode()
+!F2::toggleZenMode()
+F1::toggleZenMode()      ; блокирующий F1
+^!x::disableZenMode()    ; аварийный выход
+
+; ---------- УСТАНОВКА WinEventHook ----------
+callbackWinEvent := CallbackCreate("WinEventProc", "Fast")
+hCallHook := DllCall("SetWinEventHook"
+    , "UInt", 0x0003, "UInt", 0x0003   ; EVENT_SYSTEM_FOREGROUND
+    , "Ptr", 0
+    , "Ptr", callbackWinEvent
+    , "UInt", 0, "UInt", 0
+    , "UInt", 0x0002                  ; WINEVENT_OUTOFCONTEXT
+)
+OnExit(Func("CleanupHooks"))
 
 ; =========================================
-;   Функции Zen
+;  ВКЛ / ВЫКЛ ZEN‑режима
 ; =========================================
 
 toggleZenMode() {
     global zen, savedWin, marginH, marginV, overlayGui, zenHwnd
 
-    if zen {
+    if zen {         ; если уже включён — выключаем
         disableZenMode()
         return
     }
@@ -31,38 +60,34 @@ toggleZenMode() {
         return
     }
 
-    ; сохраняем положение и размер
+    ; --- сохраняем состояние окна ---
     WinGetPos(&ox,&oy,&ow,&oh, hwnd)
-    wasMax := WinGetMinMax(hwnd)  ; 1 = maximized
+    wasMax := WinGetMinMax(hwnd)          ; 1 = maximized
     savedWin := Map("id",hwnd,"x",ox,"y",oy,"w",ow,"h",oh,"max",wasMax)
 
     if (wasMax = 1)
         WinRestore("ahk_id " hwnd)
     Sleep 50
 
-    ; определяем монитор по центру окна
-    centerX := ox + ow//2
-    centerY := oy + oh//2
+    ; --- расчёт позиции внутри монитора ---
+    centerX := ox + ow//2,  centerY := oy + oh//2
     mon := GetMonitorIndex(centerX, centerY)
     MonitorGetWorkArea(mon, &mL,&mT,&mR,&mB)
-    monW := mR - mL
-    monH := mB - mT
+    monW := mR - mL,  monH := mB - mT
 
-    ; рассчитываем центрируемые координаты
     newW := Round(monW * (1 - marginH*2))
     newH := Round(monH * (1 - marginV*2))
     newX := mL + Round(monW * marginH)
     newY := mT + Round(monH * marginV)
 
-    ; перемещаем окно
     WinMove(newX, newY, newW, newH, "ahk_id " hwnd)
 
-    ; создаём полноэкранное затемнение на весь virtual desktop
+    ; --- создаём шторку ---
     virtL := SysGet(76), virtT := SysGet(77)
     virtW := SysGet(78), virtH := SysGet(79)
     createFullOverlay(virtL, virtT, virtW, virtH)
 
-    ; поднимаем окно над шторкой
+    ; --- поднимаем окно сверху ---
     WinSetAlwaysOnTop(1, "ahk_id " hwnd)
     WinActivate("ahk_id " hwnd)
 
@@ -87,14 +112,14 @@ disableZenMode() {
 
     if IsObject(overlayGui)
         overlayGui.Destroy()
-    overlayGui := ""  ; reset
+    overlayGui := ""
 
     zen := false
     zenHwnd := 0
 }
 
 ; =========================================
-;   ОДНА ПОЛНОЭКРАННАЯ ШТОРКА
+;  ШТОРКА (GUI overlay)
 ; =========================================
 
 createFullOverlay(x,y,w,h) {
@@ -107,27 +132,23 @@ createFullOverlay(x,y,w,h) {
     WinSetTransparent(overlayAlpha, overlayGui.Hwnd)
 }
 
-; -----------------------------------
 ; индекс монитора по точке
-; -----------------------------------
 GetMonitorIndex(px,py) {
     cnt := MonitorGetCount()
     Loop cnt {
-        idx := A_Index
-        MonitorGetWorkArea(idx, &l,&t,&r,&b)
+        MonitorGetWorkArea(A_Index,&l,&t,&r,&b)
         if (px>=l && px<r && py>=t && py<b)
-            return idx
+            return A_Index
     }
     return MonitorGetPrimary()
 }
 
 ; -----------------------------------
-; WinEvent callback для смены окна
+; WinEvent callback: EVENT_SYSTEM_FOREGROUND
 ; -----------------------------------
-
-WinEventProc(hWinEventHook, event, hwndNew, idObject, idChild, dwThread, dwTime) {
+WinEventProc(hook,event,hwndNew,idObj,idChild,thread,time) {
     global zen, zenHwnd
-    if !zen || idObject || idChild
+    if !zen || idObj || idChild
         return
     if (hwndNew && hwndNew != zenHwnd) {
         disableZenMode()
@@ -136,11 +157,9 @@ WinEventProc(hWinEventHook, event, hwndNew, idObject, idChild, dwThread, dwTime)
     }
 }
 
-; -----------------------------------
-; Удаляем хук при выходе
-; -----------------------------------
+; OnExit
 CleanupHooks(*) {
     global hCallHook
-    if (hCallHook)
+    if hCallHook
         DllCall("UnhookWinEvent", "Ptr", hCallHook)
 }
