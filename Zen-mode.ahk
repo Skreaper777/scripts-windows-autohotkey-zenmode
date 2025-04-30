@@ -32,7 +32,7 @@ F1::toggleZenMode()      ; блокирующий F1
 ^!x::disableZenMode()    ; аварийный выход
 
 ; ---------- УСТАНОВКА WinEventHook ----------
-callbackWinEvent := CallbackCreate("WinEventProc", "Fast")
+callbackWinEvent := CallbackCreate(WinEventProc, "Fast")
 hCallHook := DllCall("SetWinEventHook"
     , "UInt", 0x0003, "UInt", 0x0003   ; EVENT_SYSTEM_FOREGROUND
     , "Ptr", 0
