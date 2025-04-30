@@ -9,44 +9,9 @@
 ; • Полноэкранная шторка на весь виртуальный рабочий стол, окно всегда поверх
 ; • Поддержка maximized для возврата в исходное состояние
 ; • Multi-monitor: учёт SysGet 76-79, собственная функция GetMonitorIndex
-; -----------------------------------------
-
-; ---------- ПАРАМЕТРЫ ----------
-global marginH := 0.25           ; доля пустоты слева/справа
-global marginV := 0.10           ; доля пустоты сверху/снизу
-global overlayAlpha := 240       ; 0–255 прозрачность
-
-; ---------- ГЛОБАЛЫ ----------
-global zen := false              ; статус Zen-режима
-global savedWin := Map()         ; координаты + был Max
-global overlayGui := ""         ; GUI-шторка
-global zenHwnd := 0              ; HWND активной Zen-цели
-global hCallHook := 0            ; хук WinEvent
-
-; ---------- ГОРЯЧИЕ КЛАВИШИ ----------
-^!z::toggleZenMode()
-^F11::toggleZenMode()
-F8::toggleZenMode()
-!F2::toggleZenMode()
-F1::toggleZenMode()
-^!x::disableZenMode()  ; аварийный выход
-
-; ---------- ИНИЦИАЛИЗАЦИЯ WINEVENTHOOK ----------
-; создаём callback-объект для обработки системного события смены фокуса
-callbackWinEvent := RegisterCallback("WinEventProc", "Fast")
-
-hCallHook := DllCall("SetWinEventHook"
-    , "UInt", 0x0003, "UInt", 0x0003            ; EVENT_SYSTEM_FOREGROUND
-    , "Ptr", 0                    ; hmodWinEventProc
-    , "Ptr", callbackWinEvent     ; lpfnWinEventProc
-    , "UInt", 0, "UInt", 0      ; все процессы, все потоки
-    , "UInt", 0x0002             ; WINEVENT_OUTOFCONTEXT
-)
-
 ; -----------------------------------
 ; регистрируем OnExit колбэк для снятия хука
-cleanupHook := Func("CleanupHooks")
-OnExit(cleanupHook)
+OnExit("CleanupHooks")
 
 ; =========================================
 ;   Функции Zen
