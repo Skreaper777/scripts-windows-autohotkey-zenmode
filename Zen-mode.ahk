@@ -1,7 +1,7 @@
 ﻿#Requires AutoHotkey v2.0
 #SingleInstance Force
 
-global VarSetCapacity, NumPut
+
 
 
 ; =========================================
@@ -144,7 +144,7 @@ disableZenMode() {
 ; ===================================
 
 createFullOverlay(x,y,w,h) {
-    global overlayGui, overlayAlpha, VarSetCapacity, NumPut
+    global overlayGui, overlayAlpha
 
     overlayGui := Gui("-Caption +AlwaysOnTop +ToolWindow")
     overlayGui.BackColor := "Black"
