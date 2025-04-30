@@ -32,17 +32,25 @@ F1::toggleZenMode()
 ^!x::disableZenMode()  ; аварийный выход
 
 ; ---------- ИНИЦИАЛИЗАЦИЯ WINEVENTHOOK ----------
+; создаём callback-объект для обработки системного события смены фокуса
+callbackWinEvent := RegisterCallback("WinEventProc", "Fast")
+
 hCallHook := DllCall("SetWinEventHook"
     , "UInt", 0x0003, "UInt", 0x0003            ; EVENT_SYSTEM_FOREGROUND
     , "Ptr", 0
-    , "Ptr", RegisterCallback("WinEventProc","Fast")
+    , "Ptr", callbackWinEvent                         ; передаём объект-колбэк
     , "UInt", 0, "UInt", 0
     , "UInt", 0x0002                            ; WINEVENT_OUTOFCONTEXT
 )
 
-; ===================================
+; -----------------------------------
+; регистрируем OnExit колбэк для снятия хука
+cleanupHook := Func("CleanupHooks")
+OnExit(cleanupHook)
+
+; =========================================
 ;   ВКЛ / ВЫКЛ Zen-режима
-; ===================================
+; =========================================
 
 toggleZenMode() {
     global zen, savedWin, marginH, marginV, overlayGui, zenHwnd
@@ -115,13 +123,14 @@ disableZenMode() {
     if IsObject(overlayGui)
         overlayGui.Destroy()
     overlayGui := ""
+
     zen := false
     zenHwnd := 0
 }
 
-; ===================================
+; =========================================
 ;   ОДНА ПОЛНОЭКРАННАЯ ШТОРКА
-; ===================================
+; =========================================
 
 createFullOverlay(x,y,w,h) {
     global overlayGui, overlayAlpha
@@ -165,7 +174,6 @@ WinEventProc(hWinEventHook, event, hwndNew, idObject, idChild, dwThread, dwTime)
 ; -----------------------------------
 ; Удаляем хук при выходе
 ; -----------------------------------
-OnExit(Func("CleanupHooks"))
 CleanupHooks(*) {
     global hCallHook
     if (hCallHook)
