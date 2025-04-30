@@ -26,11 +26,13 @@ global WinData := Map()
 }
 
 toggleZenMode() {
+    global origWin
     global toggle, WinData
     toggle := !toggle
 
     if toggle {
         win := WinGetID("A")
+        origWin := win
         if !win {
             TrayTip "Zen Mode", "❌ Активное окно не найдено", 1
             toggle := false
@@ -52,15 +54,16 @@ toggleZenMode() {
 
         try WinSetAlwaysOnTop(false, win)
         PostMessage(0x112, 0xF120,,, "ahk_id " win)  ; WM_SYSCOMMAND, SC_RESTORE
-        try WinSetAlwaysOnTop(true, win)
-        try WinActivate(win)
+        Sleep 100
+                try WinSetAlwaysOnTop(true, origWin)
+        try WinActivate(origWin)
 
         ; Принудительное снятие стиля WS_MAXIMIZE, если он есть
-        style := DllCall("GetWindowLongPtr", "ptr", win, "int", -16, "ptr")
+        style := DllCall("GetWindowLongPtr", "ptr", origWin, "int", -16, "ptr")
         style := style & ~0x01000000  ; WS_MAXIMIZE
-        DllCall("SetWindowLongPtr", "ptr", win, "int", -16, "ptr", style)
+        DllCall("SetWindowLongPtr", "ptr", origWin, "int", -16, "ptr", style)
 
-        WinMove(win, newX, newY, newW, newH)
+        WinMove("ahk_id " origWin, newX, newY, newW, newH)
 
         createOverlay("L", 0, 0, newX, screenH)
 
