@@ -13,7 +13,7 @@ global WinData := Map()
     id := WinData["id"]
     if id {
         try WinSetAlwaysOnTop(false, id)
-        try DllCall("ShowWindow", "ptr", id, "int", 1)  ; SW_SHOWNORMAL
+        PostMessage(0x112, 0xF120,,, "ahk_id " id)  ; WM_SYSCOMMAND, SC_RESTORE
         flags := 0x0040 | 0x0020 | 0x0004 ; SWP_SHOWWINDOW | SWP_FRAMECHANGED | SWP_NOZORDER
             try WinMove(id, WinData["x"], WinData["y"], WinData["w"], WinData["h"])
     }
@@ -51,8 +51,7 @@ toggleZenMode() {
         TrayTip "Zen Mode", "newX:" newX ", newW:" newW ", screenW:" screenW, 1
 
         try WinSetAlwaysOnTop(false, win)
-        try DllCall("ShowWindow", "ptr", win, "int", 1)  ; SW_SHOWNORMAL
-        win := WinGetID("A")  ; Обновляем идентификатор активного окна после ShowWindow
+        PostMessage(0x112, 0xF120,,, "ahk_id " win)  ; WM_SYSCOMMAND, SC_RESTORE
         try WinSetAlwaysOnTop(true, win)
         try WinActivate(win)
 
