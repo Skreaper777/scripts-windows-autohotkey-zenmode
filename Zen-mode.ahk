@@ -146,7 +146,11 @@ disableZenMode() {
 ; ===================================
 
 createFullOverlay(x,y,w,h) {
+    global overlayGui, overlayAlpha, VarSetCapacity, NumPut
     global overlayGui, overlayAlpha
+    ; инициализация переменных для вызова VarSetCapacity избегает ворнингов
+    accentPolicy := ""
+    wcadata := ""
     overlayGui := Gui("-Caption +AlwaysOnTop +ToolWindow")
     overlayGui.BackColor := "Black"
     overlayGui.Show("x" x " y" y " w" w " h" h " NoActivate")
