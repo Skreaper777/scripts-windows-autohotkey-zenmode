@@ -31,7 +31,7 @@ Hotkey("^!x", (*) => disableZenMode())    ; аварийный выход
 ; ---------- ЛКМ по шторке ----------
 OnMessage(0x201, OnOverlayClick)   ; WM_LBUTTONDOWN
 OnOverlayClick(w,l,m,hwnd) {
-    global zen, overlayGui, disableZenMode
+    global zen, overlayGui
     if zen && IsObject(overlayGui) && (hwnd = overlayGui.Hwnd)
         disableZenMode()
 }
@@ -41,7 +41,7 @@ OnOverlayClick(w,l,m,hwnd) {
 ; ===================================
 
 toggleZenMode() {
-    global zen, savedWin, marginH, marginV, overlayGui, disableZenMode
+    global zen, savedWin, marginH, marginV, overlayGui
 
     if zen {
         disableZenMode()
