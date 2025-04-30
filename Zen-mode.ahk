@@ -2,37 +2,37 @@
 #SingleInstance Force
 
 ; ==========================
-; Zen‑Mode — стабильная v4.1
+; Zen-Mode — стабильная **v4.2**
 ; ==========================
-;  • Раздельные marginH / marginV
-;  • Персональные пэды padL/R/T/B
-;  • overlayAlpha применяется ровно один раз ко *всем* шторкам
-;  • Любое число hotkey'ев (см. hotkeyList)
+;  • marginH / marginV — раздельные поля
+;  • padL/R/T/B — точная юстировка каждого края
+;  • overlayAlpha применяется ко всем шторкам один раз
 ;  • ЛКМ по затемнению мгновенно выключает режим
+;  • Любое количество хоткеев (см. hotkeyList)
 ; ----------------------------------------------------------
 
 ; ---------- НАСТРОЙКА ----------
-global marginH := 0.25      ; 0‑1 пустота слева/справа
-global marginV := 0.05      ; 0‑1 пустота сверху/снизу
+global marginH := 0.25      ; 0-1 пустота слева/справа
+global marginV := 0.15      ; 0-1 пустота сверху/снизу
 
-global overlayAlpha := 240  ; 0‑255 (150 ≈ 60 %)
+global overlayAlpha := 240  ; 0-255 (150 ≈ 60 %)
 
-global padL := 8, padR := 8, padT := 6, padB := 0
+global padL := 8, padR := 8, padT := 6, padB := 8
 
-global hotkeyList := ["^!z", "^F11", "F8"] ; включение Zen
+global hotkeyList := ["^!z", "^F11", "F8", "!F2"] ; включение Zen
 
 ; ---------- ВНУТРЕННИЕ ----------
 global zen            := false
 global savedWin       := Map()    ; координаты для отката
-global overlayGuiArr  := []       ; список гуёв‑шторок
+global overlayGuiArr  := []       ; список гуёв-шторок
 
 ; =========================================
 ;  ГОРЯЧИЕ КЛАВИШИ
 ; =========================================
-
 ToggleZen(*) => toggleZenMode()
 for hk in hotkeyList
     Hotkey(hk, ToggleZen)
+
 Hotkey("^!x", (*) => disableZenMode()) ; аварийный выход
 
 ; =========================================
@@ -51,7 +51,7 @@ HandleClick(wParam, lParam, msg, hWnd) {
 }
 
 ; =========================================
-;  ВКЛ / ВЫКЛ  ZEN‑режима
+;  ВКЛ / ВЫКЛ  ZEN-режима
 ; =========================================
 
 toggleZenMode() {
@@ -93,7 +93,7 @@ toggleZenMode() {
 }
 
 ; =========================================
-;  ОТКЛЮЧЕНИЕ ZEN‑режима
+;  ОТКЛЮЧЕНИЕ ZEN-режима
 ; =========================================
 
 disableZenMode() {
@@ -115,7 +115,7 @@ disableZenMode() {
 }
 
 ; =========================================
-;  СОЗДАНИЕ ШТОРОК  (без перекрытия)
+;  СОЗДАНИЕ ШТОРОК
 ; =========================================
 
 createOverlayRect(x, y, w, h) {
@@ -130,16 +130,19 @@ createOverlayRect(x, y, w, h) {
 }
 
 buildOverlays(nx, ny, nw, nh, sw, sh) {
-    global padL, padR, padT, padB
+    global overlayGuiArr, padL, padR, padT, padB
 
-    overlayGuiArr := []  ; очищаем
+    ; очищаем прежние шторки
+    for g in overlayGuiArr
+        g.Destroy()
+    overlayGuiArr := []
 
     ; слева
     createOverlayRect(0, 0, nx + padL, sh)
     ; справа
     createOverlayRect(nx + nw - padR, 0, (sw - nx - nw) + padR, sh)
-    ; сверху
+    ; сверху (между боковинами)
     createOverlayRect(nx + padL, 0, nw - padL - padR, ny + padT)
-    ; снизу
-    createOverlayRect(nx + padL, ny + nh - padT, nw - padL - padR, (sh - ny - nh) + padB)
+    ; снизу (между боковинами)
+    createOverlayRect(nx + padL, ny + nh - padB, nw - padL - padR, (sh - ny - nh) + padB)
 }
