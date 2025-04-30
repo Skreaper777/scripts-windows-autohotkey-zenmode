@@ -32,14 +32,11 @@ F1::toggleZenMode()      ; блокирующий F1
 ^!x::disableZenMode()    ; аварийный выход
 
 ; ---------- УСТАНОВКА WinEventHook ----------
-; ---------- УСТАНОВКА WinEventHook ----------
 callbackWinEvent := CallbackCreate(WinEventProc, "Fast")
 hCallHook := DllCall("SetWinEventHook"
-    , "UInt", 0x0003, "UInt", 0x0003
+    , "UInt", 0x0003, "UInt", 0x0003        ; EVENT_SYSTEM_FOREGROUND
     , "Ptr", 0, "Ptr", callbackWinEvent
     , "UInt", 0, "UInt", 0, "UInt", 0x0002)
-
-; (OnExit переносим в конец скрипта после объявления CleanupHooks)
 
 ; =========================================
 ;  ВКЛ / ВЫКЛ ZEN‑режима
@@ -142,18 +139,6 @@ GetMonitorIndex(px,py) {
     return MonitorGetPrimary()
 }
 
-; -----------------------------------
-; WinEvent callback: EVENT_SYSTEM_FOREGROUND
-; -----------------------------------
-WinEventProc(hook,event,hwndNew,idObj,idChild,thread,time) {
-    global zen, zenHwnd
-    if !zen || idObj || idChild
-        return
-    if (hwndNew && hwndNew != zenHwnd) {
-        disableZenMode()
-        Sleep 50
-        toggleZenMode()
-    }
 }
 
 ; -----------------------------------
