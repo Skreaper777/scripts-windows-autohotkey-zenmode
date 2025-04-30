@@ -13,7 +13,7 @@
 
 ; ---------- НАСТРОЙКА ----------
 global marginH := 0.25      ; 0‑1 пустота слева/справа
-global marginV := 0.10      ; 0‑1 пустота сверху/снизу
+global marginV := 0.05      ; 0‑1 пустота сверху/снизу
 
 global overlayAlpha := 240  ; 0‑255 (≈ 94 %)
 
@@ -88,9 +88,10 @@ toggleZenMode() {
     WinActivate("ahk_id " hwnd)
     WinMove(newX, newY, newW, newH, "ahk_id " hwnd)
 
-    ; --- затемняем всё остальное ---
+        ; --- затемняем всё остальное (учёт смещённого виртуального экрана) ---
+    virtL := SysGet(76), virtT := SysGet(77)
     virtW := SysGet(78), virtH := SysGet(79)
-    buildOverlays(newX, newY, newW, newH, virtW, virtH)
+    buildOverlays(newX, newY, newW, newH, virtL, virtT, virtW, virtH)
 
     zen := true
 }
@@ -132,21 +133,35 @@ createOverlayRect(x, y, w, h) {
     overlayGuiArr.Push(o)
 }
 
-buildOverlays(nx, ny, nw, nh, vw, vh) {
+buildOverlays(wx, wy, ww, wh, vL, vT, vW, vH) {
     global overlayGuiArr, padL, padR, padT, padB
 
     for g in overlayGuiArr
         g.Destroy()
     overlayGuiArr := []
 
-    ; слева
-    createOverlayRect(0, 0, nx + padL, vh)
-    ; справа
-    createOverlayRect(nx + nw - padR, 0, (vw - nx - nw) + padR, vh)
-    ; сверху
-    createOverlayRect(nx + padL, 0, nw - padL - padR, ny + padT)
-    ; снизу
-    createOverlayRect(nx + padL, ny + nh - padB, nw - padL - padR, (vh - ny - nh) + padB)
+    ; расчёты
+    leftX   := vL
+    leftW   := (wx - vL) + padL
+
+    rightX  := wx + ww - padR
+    rightW  := (vL + vW) - rightX
+
+    topX    := wx - padL
+    topY    := vT
+    topW    := ww + padL + padR
+    topH    := (wy - vT) + padT
+
+    botX    := wx - padL
+    botY    := wy + wh - padB
+    botW    := ww + padL + padR
+    botH    := (vT + vH) - botY
+
+    ; создаём: проверяем положительные размеры
+    createOverlayRect(leftX, vT, leftW, vH)        ; слева
+    createOverlayRect(rightX, vT, rightW, vH)       ; справа
+    createOverlayRect(topX, topY, topW, topH)       ; сверху
+    createOverlayRect(botX, botY, botW, botH)       ; снизу
 }
 
 ; ---------- определить монитор по точке ----------
