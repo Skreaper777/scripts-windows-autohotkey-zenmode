@@ -2,28 +2,29 @@
 #SingleInstance Force
 
 ; =====================
-; Zen-Mode v3.1
+; Zen‑Mode v3.2
 ; =====================
-;   • Раздельные отступы: marginH (лево/право) и marginV (верх/низ)
-;   • Несколько хоткеев (см. hotkeyList)
-;   • padL/R/T/B — тонкая настройка затемнения
-;   • Клик по тёмной области выключает режим (фикс через скрытый Text-контрол)
+;   • marginH / marginV — раздельные поля
+;   • overlayAlpha управляет прозрачностью *всех* затемнений
+;   • padL/R/T/B — юстировка краёв (± px)
+;   • Хоткеев сколько угодно (см. hotkeyList)
+;   • ЛКМ по затемнению = выход
 ; -----------------------------------------------------------
 
 ; ---------- настраиваемые параметры ----------
 global marginH        := 0.25     ; доля (0‒1) слева/справа
 global marginV        := 0.15     ; доля (0‒1) сверху/снизу
 
-global overlayAlpha   := 150      ; 0‒255 (≈90 % затемнения)
+global overlayAlpha   := 150      ; 0‒255 (≈ 60 % затемнения)
 
-; «Раздувание»/сжатие затемнения (в пикселях; + расширяет, ‒ сжимает)
+; «Раздувание»/сжатие затемнения (px; + расширяет, ‒ сжимает)
 global padL := 8
 global padR := 8
 global padT := 6
 global padB := 22
 
-; Горячие клавиши, активирующие Zen-Mode
-global hotkeyList := ["^!z", "^F11", "F8"]  ; добавь свои сочетания
+; Хоткеи для Zen‑Mode
+global hotkeyList := ["^!z", "^F11", "F8"]
 
 ; ---------- внутренние ----------
 global zen      := false
@@ -39,29 +40,26 @@ for hk in hotkeyList
 Hotkey("^!x", (*) => forceOff()) ; аварийный выход
 
 ; =====================================
-; Основной переключатель режима
+; Включение / выключение режима
 ; =====================================
 
 toggleZenMode() {
     global zen, savedWin, marginH, marginV
 
     if !zen {
-        ; ============== ВКЛЮЧЕНИЕ ==============
         hwnd := WinGetID("A")
         if !hwnd {
             TrayTip "Zen Mode", "❌ Активное окно не найдено", 1
             return
         }
 
-        ; --- Сохраняем исходное положение
+        ; исходные координаты
         WinGetPos(&ox,&oy,&ow,&oh, hwnd)
         savedWin := Map("id", hwnd, "x", ox, "y", oy, "w", ow, "h", oh)
 
-        ; --- Снимаем развёртывание
         WinRestore("ahk_id " hwnd)
         Sleep 50
 
-        ; --- Вычисляем целевые координаты
         screenW := SysGet(78)
         screenH := SysGet(79)
         newW := Round(screenW * (1 - marginH*2))
@@ -69,31 +67,21 @@ toggleZenMode() {
         newX := Round(screenW * marginH)
         newY := Round(screenH * marginV)
 
-        ; --- Делаем окно поверх и двигаем
         WinSetAlwaysOnTop(1, "ahk_id " hwnd)
         WinActivate("ahk_id " hwnd)
         WinMove(newX, newY, newW, newH, "ahk_id " hwnd)
 
-        ; --- Затемняем фон
         buildOverlays(newX, newY, newW, newH, screenW, screenH)
         zen := true
     } else {
-        ; ============== ВЫКЛЮЧЕНИЕ ==============
         disableZenMode()
     }
 }
 
-; =====================================
-; Экстренное выключение
-; =====================================
-
-forceOff(*) {
-    TrayTip "Zen Mode", "Экстренное отключение", 1
-    disableZenMode()
-}
+forceOff(*) => disableZenMode()
 
 ; =====================================
-; Отключаем Zen-режим
+; Отключаем Zen‑режим
 ; =====================================
 
 disableZenMode() {
@@ -107,7 +95,6 @@ disableZenMode() {
         WinMove(savedWin["x"], savedWin["y"], savedWin["w"], savedWin["h"], "ahk_id " hwnd)
     }
 
-    ; Уничтожаем оверлеи
     for n in overlayIDs
         if (gui := GuiGet("Overlay" n))
             gui.Destroy()
@@ -122,10 +109,10 @@ disableZenMode() {
 buildOverlays(nx, ny, nw, nh, sw, sh) {
     global padL, padR, padT, padB
 
-    createOverlay("L", 0, 0, nx + padL, sh)                                           ; слева
-    createOverlay("R", nx + nw - padR, 0, (sw - (nx + nw)) + padR, sh)                 ; справа
-    createOverlay("T", nx - padL, 0, nw + padL + padR, ny + padT)                      ; сверху
-    createOverlay("B", nx - padL, ny + nh - padT, nw + padL + padR, (sh - (ny + nh)) + padB) ; снизу
+    createOverlay("L", 0, 0, nx + padL, sh)                                          ; слева
+    createOverlay("R", nx + nw - padR, 0, (sw - nx - nw) + padR, sh)                  ; справа
+    createOverlay("T", nx - padL, 0, nw + padL + padR, ny + padT)                     ; сверху
+    createOverlay("B", nx - padL, ny + nh - padT, nw + padL + padR, (sh - ny - nh) + padB) ; снизу
 }
 
 createOverlay(name, x, y, w, h) {
@@ -136,17 +123,15 @@ createOverlay(name, x, y, w, h) {
     GuiObj := Gui("-Caption +AlwaysOnTop +ToolWindow +E0x20")
     GuiObj.BackColor := "Black"
 
-    ; Полностью прозрачный Text-контрол для захвата клика
-    cover := GuiObj.AddText("x0 y0 w" w " h" h " BackgroundTrans")
-    cover.OnEvent("Click", forceOff)   ; клик = выход
+    cover := GuiObj.AddText("x0 y0 w" w " h" h)
+    cover.OnEvent("Click", (*) => forceOff())
 
     GuiObj.Show("x" x " y" y " w" w " h" h " NoActivate")
     WinSetTransparent(overlayAlpha, GuiObj.Hwnd)
     GuiSet("Overlay" . name, GuiObj)
 }
 
-; ---------- Хелперы ----------
-
+; ---------- хелперы ----------
 GuiMap := Map()
 GuiSet(name, obj) => GuiMap[name] := obj
 GuiGet(name)      => GuiMap.Has(name) ? GuiMap[name] : ""
