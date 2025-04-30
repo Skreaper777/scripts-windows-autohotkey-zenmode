@@ -37,10 +37,10 @@ callbackWinEvent := RegisterCallback("WinEventProc", "Fast")
 
 hCallHook := DllCall("SetWinEventHook"
     , "UInt", 0x0003, "UInt", 0x0003            ; EVENT_SYSTEM_FOREGROUND
-    , "Ptr", 0
-    , "Ptr", callbackWinEvent                         ; передаём объект-колбэк
-    , "UInt", 0, "UInt", 0
-    , "UInt", 0x0002                            ; WINEVENT_OUTOFCONTEXT
+    , "Ptr", 0                    ; hmodWinEventProc
+    , "Ptr", callbackWinEvent     ; lpfnWinEventProc
+    , "UInt", 0, "UInt", 0      ; все процессы, все потоки
+    , "UInt", 0x0002             ; WINEVENT_OUTOFCONTEXT
 )
 
 ; -----------------------------------
@@ -49,7 +49,7 @@ cleanupHook := Func("CleanupHooks")
 OnExit(cleanupHook)
 
 ; =========================================
-;   ВКЛ / ВЫКЛ Zen-режима
+;   Функции Zen
 ; =========================================
 
 toggleZenMode() {
@@ -107,7 +107,7 @@ toggleZenMode() {
 
 ; -----------------------------------
 disableZenMode() {
-    global zen, savedWin, overlayGui, zenHwnd, hCallHook
+    global zen, savedWin, overlayGui, zenHwnd
     if !zen
         return
 
@@ -122,7 +122,7 @@ disableZenMode() {
 
     if IsObject(overlayGui)
         overlayGui.Destroy()
-    overlayGui := ""
+    overlayGui := ""  ; reset
 
     zen := false
     zenHwnd := 0
