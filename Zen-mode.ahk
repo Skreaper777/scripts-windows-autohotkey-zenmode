@@ -109,7 +109,7 @@ toggleZenMode() {
     createFullOverlay(virtL, virtT, virtW, virtH)
 
     WinSetAlwaysOnTop(1, hwnd)
-    WinActivate("ahk_id " hwnd)
+    WinActivate(hwnd)
 
     zen := true
 }
