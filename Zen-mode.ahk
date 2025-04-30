@@ -2,56 +2,51 @@
 #SingleInstance Force
 
 ; ==========================
-; Zen-Mode — стабильная **v4.2**
+; Zen‑Mode — мульти‑мониторная **v5.2**
 ; ==========================
-;  • marginH / marginV — раздельные поля
-;  • padL/R/T/B — точная юстировка каждого края
-;  • overlayAlpha применяется ко всем шторкам один раз
-;  • ЛКМ по затемнению мгновенно выключает режим
-;  • Любое количество хоткеев (см. hotkeyList)
+;  • Центрирует активное окно относительно того монитора, где оно находится
+;  • Затемняет ВСЮ виртуальную рабочую поверхность (все дисплеи)
+;  • marginH / marginV — отступы, padL/R/T/B — юстировка краёв
+;  • overlayAlpha применяется ко всем шторкам
+;  • ЛКМ по затемнению мгновенно отключает режим
 ; ----------------------------------------------------------
 
 ; ---------- НАСТРОЙКА ----------
-global marginH := 0.25      ; 0-1 пустота слева/справа
-global marginV := 0.15      ; 0-1 пустота сверху/снизу
+global marginH := 0.25      ; 0‑1 пустота слева/справа
+global marginV := 0.10      ; 0‑1 пустота сверху/снизу
 
-global overlayAlpha := 240  ; 0-255 (150 ≈ 60 %)
+global overlayAlpha := 240  ; 0‑255 (≈ 94 %)
 
 global padL := 8, padR := 8, padT := 6, padB := 8
 
 global hotkeyList := ["^!z", "^F11", "F8", "!F2"] ; включение Zen
 
 ; ---------- ВНУТРЕННИЕ ----------
-global zen            := false
-global savedWin       := Map()    ; координаты для отката
-global overlayGuiArr  := []       ; список гуёв-шторок
+global zen := false
+global savedWin := Map()
+global overlayGuiArr := []
 
-; =========================================
-;  ГОРЯЧИЕ КЛАВИШИ
-; =========================================
+; ---------- ГОРЯЧИЕ КЛАВИШИ ----------
 ToggleZen(*) => toggleZenMode()
 for hk in hotkeyList
     Hotkey(hk, ToggleZen)
-
 Hotkey("^!x", (*) => disableZenMode()) ; аварийный выход
 
-; =========================================
-;  Ловим ЛКМ на шторке (WM_LBUTTONDOWN = 0x201)
-; =========================================
-OnMessage(0x201, HandleClick)
+; ---------- Ловим ЛКМ на шторке ----------
+OnMessage(0x201, HandleClick) ; WM_LBUTTONDOWN
 HandleClick(wParam, lParam, msg, hWnd) {
     global zen, overlayGuiArr
     if !zen
         return
-    for oGui in overlayGuiArr
-        if (hWnd = oGui.Hwnd) {
+    for g in overlayGuiArr
+        if (hWnd = g.Hwnd) {
             disableZenMode()
             return
         }
 }
 
 ; =========================================
-;  ВКЛ / ВЫКЛ  ZEN-режима
+;   ВКЛ / ВЫКЛ  ZEN‑режима
 ; =========================================
 
 toggleZenMode() {
@@ -68,32 +63,40 @@ toggleZenMode() {
         return
     }
 
-    ; ----- Сохраняем положение окна -----
+    ; --- сохраняем позицию/размер ---
     WinGetPos(&ox,&oy,&ow,&oh, hwnd)
     savedWin := Map("id", hwnd, "x", ox, "y", oy, "w", ow, "h", oh)
 
     WinRestore("ahk_id " hwnd)
     Sleep 50
 
-    ; ----- Расчёт новой геометрии -----
-    screenW := SysGet(78), screenH := SysGet(79)
-    newW := Round(screenW * (1 - marginH*2))
-    newH := Round(screenH * (1 - marginV*2))
-    newX := Round(screenW * marginH)
-    newY := Round(screenH * marginV)
+    ; --- выбираем монитор по центру окна ---
+    centerX := ox + ow//2
+    centerY := oy + oh//2
+    mon := GetMonitorIndex(centerX, centerY)
+    MonitorGetWorkArea(mon, &mL,&mT,&mR,&mB)
+    monW := mR - mL
+    monH := mB - mT
 
-    ; ----- Перемещаем окно -----
+    newW := Round(monW * (1 - marginH*2))
+    newH := Round(monH * (1 - marginV*2))
+    newX := mL + Round(monW * marginH)
+    newY := mT + Round(monH * marginV)
+
+    ; --- позиционируем окно ---
     WinSetAlwaysOnTop(1, "ahk_id " hwnd)
     WinActivate("ahk_id " hwnd)
     WinMove(newX, newY, newW, newH, "ahk_id " hwnd)
 
-    ; ----- Строим затемнение -----
-    buildOverlays(newX, newY, newW, newH, screenW, screenH)
+    ; --- затемняем всё остальное ---
+    virtW := SysGet(78), virtH := SysGet(79)
+    buildOverlays(newX, newY, newW, newH, virtW, virtH)
+
     zen := true
 }
 
 ; =========================================
-;  ОТКЛЮЧЕНИЕ ZEN-режима
+;   ОТКЛЮЧЕНИЕ  ZEN‑режима
 ; =========================================
 
 disableZenMode() {
@@ -107,42 +110,53 @@ disableZenMode() {
         WinMove(savedWin["x"], savedWin["y"], savedWin["w"], savedWin["h"], "ahk_id " hwnd)
     }
 
-    for oGui in overlayGuiArr
-        oGui.Destroy()
+    for g in overlayGuiArr
+        g.Destroy()
     overlayGuiArr := []
 
     zen := false
 }
 
 ; =========================================
-;  СОЗДАНИЕ ШТОРОК
+;   ШТОРКИ
 ; =========================================
 
 createOverlayRect(x, y, w, h) {
     global overlayGuiArr, overlayAlpha
-    if (w <= 0 || h <= 0)
+    if (w<=0 || h<=0)
         return
-    oGui := Gui("-Caption +AlwaysOnTop +ToolWindow")
-    oGui.BackColor := "Black"
-    oGui.Show("x" x " y" y " w" w " h" h " NoActivate")
-    WinSetTransparent(overlayAlpha, oGui.Hwnd)
-    overlayGuiArr.Push(oGui)
+    o := Gui("-Caption +AlwaysOnTop +ToolWindow")
+    o.BackColor := "Black"
+    o.Show("x" x " y" y " w" w " h" h " NoActivate")
+    WinSetTransparent(overlayAlpha, o.Hwnd)
+    overlayGuiArr.Push(o)
 }
 
-buildOverlays(nx, ny, nw, nh, sw, sh) {
+buildOverlays(nx, ny, nw, nh, vw, vh) {
     global overlayGuiArr, padL, padR, padT, padB
 
-    ; очищаем прежние шторки
     for g in overlayGuiArr
         g.Destroy()
     overlayGuiArr := []
 
     ; слева
-    createOverlayRect(0, 0, nx + padL, sh)
+    createOverlayRect(0, 0, nx + padL, vh)
     ; справа
-    createOverlayRect(nx + nw - padR, 0, (sw - nx - nw) + padR, sh)
-    ; сверху (между боковинами)
+    createOverlayRect(nx + nw - padR, 0, (vw - nx - nw) + padR, vh)
+    ; сверху
     createOverlayRect(nx + padL, 0, nw - padL - padR, ny + padT)
-    ; снизу (между боковинами)
-    createOverlayRect(nx + padL, ny + nh - padB, nw - padL - padR, (sh - ny - nh) + padB)
+    ; снизу
+    createOverlayRect(nx + padL, ny + nh - padB, nw - padL - padR, (vh - ny - nh) + padB)
+}
+
+; ---------- определить монитор по точке ----------
+GetMonitorIndex(x, y) {
+    count := MonitorGetCount()
+    Loop count {
+        idx := A_Index
+        MonitorGetWorkArea(idx, &l,&t,&r,&b)
+        if (x>=l && x<r && y>=t && y<b)
+            return idx
+    }
+    return MonitorGetPrimary()
 }
