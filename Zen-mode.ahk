@@ -13,11 +13,11 @@
 
 ; ---------- НАСТРОЙКА ----------
 global marginH := 0.25      ; 0‑1 пустота слева/справа
-global marginV := 0.15      ; 0‑1 пустота сверху/снизу
+global marginV := 0.05      ; 0‑1 пустота сверху/снизу
 
-global overlayAlpha := 150  ; 0‑255 (150 ≈ 60 %)
+global overlayAlpha := 240  ; 0‑255 (150 ≈ 60 %)
 
-global padL := 8, padR := 8, padT := 6, padB := 22
+global padL := 8, padR := 8, padT := 6, padB := 0
 
 global hotkeyList := ["^!z", "^F11", "F8"] ; включение Zen
 
