@@ -63,7 +63,7 @@ toggleZenMode() {
         style := style & ~0x01000000  ; WS_MAXIMIZE
         DllCall("SetWindowLongPtr", "ptr", origWin, "int", -16, "ptr", style)
 
-        WinMove(origWin, newX, newY, newW, newH)
+        DllCall("SetWindowPos", "ptr", origWin, "ptr", 0, "int", newX, "int", newY, "int", newW, "int", newH, "uint", 0x0040 | 0x0004 | 0x0020)  ; SWP_SHOWWINDOW | SWP_NOZORDER | SWP_FRAMECHANGED
 
         createOverlay("L", 0, 0, newX, screenH)
 
@@ -97,7 +97,7 @@ createOverlay(name, x, y, w, h) {
     GuiObj := Gui("-Caption +AlwaysOnTop +ToolWindow +E0x20")
     GuiObj.BackColor := "Black"
     GuiObj.Show("x" x " y" y " w" w " h" h " NoActivate")
-    WinSetTransparentAnimated(GuiObj, 150, 15)
+    WinSetTransparent(150, GuiObj.Hwnd)
     GuiSet("Overlay" . name, GuiObj)
 }
 
