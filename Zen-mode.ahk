@@ -1,47 +1,63 @@
 ﻿#Requires AutoHotkey v2.0
 #SingleInstance Force
 
-; ===========================================
-; Zen‑Mode v6.2  ―  full‑overlay + multi‑monitor
-; ===========================================
-;  • Центрирует активное окно внутри своего монитора (marginH / marginV)
-;  • Одна полноэкранная полупрозрачная шторка накрывает 100 % виртуального десктопа
-;  • Активное окно поднимается поверх шторки → закруглённые углы «чисты»
-;  • Возврат maximized/normal при выключении
-;  • ЛКМ по шторке или повторный хоткей выключают режим
-; -------------------------------------------
+; =========================================
+; Zen‑Mode  v7.0  (auto‑switch via timer)
+; =========================================
+; • F1 (и другие хоткеи) включает «фокус» на активное окно.
+; • Если во время Zen пользователь Alt‑Tab’ом активирует другое окно,
+;   скрипт автоматически снимет тьму со старого и наложит на новое.
+;   (реализовано лёгким SetTimer, без сложных WinEventHook).
+; • Одна полноэкранная шторка, окно сверху, поддержка maximized.
+; • Multi‑monitor: учитываем SysGet 76‑79.
+; -----------------------------------------
 
-; ---------- НАСТРОЙКА ----------
-global marginH := 0.25      ; 0‑1 пустота слева/справа
-global marginV := 0.10      ; 0‑1 пустота сверху/снизу
-global overlayAlpha := 240  ; 0‑255 (240 ≈ 94 %)
-global hotkeyList := ["^!z", "^F11", "F8", "!F2", "F1"] ; F1 перехватывается и блокируется ; добавлен '~F1' для перехвата без блокировки
+; ---------- ПАРАМЕТРЫ ----------
+global marginH := 0.25           ; доля пустоты слева/справа
+global marginV := 0.10           ; доля пустоты сверху/снизу
+global overlayAlpha := 240       ; 0‑255 прозрачность
+
+; гор. клавиши (последняя — блокирующий F1)
+global hotkeyList := ["^!z", "^F11", "F8", "!F2", "F1"]
 
 ; ---------- ВНУТРЕННИЕ ----------
-global zen       := false        ; статус режима
-global savedWin  := Map()        ; положение/размер/был Max
+global zen := false
+global savedWin := Map()         ; координаты + был Max
 global overlayGui := ""          ; GUI‑шторка
+global zenHwnd := 0              ; окно, на которое сейчас наложен Zen
 
 ; ---------- ГОРЯЧИЕ КЛАВИШИ ----------
-ToggleZen(*) => toggleZenMode()
 for hk in hotkeyList
-    Hotkey(hk, ToggleZen)
-Hotkey("^!x", (*) => disableZenMode())    ; аварийный выход
+    Hotkey(hk, Func("toggleZenMode"))   ; корректный callback
+Hotkey("^!x", Func("disableZenMode"))   ; аварийный выход
 
 ; ---------- ЛКМ по шторке ----------
-OnMessage(0x201, OnOverlayClick)   ; WM_LBUTTONDOWN
+OnMessage(0x201, Func("OnOverlayClick"))
 OnOverlayClick(w,l,m,hwnd) {
     global zen, overlayGui
     if zen && IsObject(overlayGui) && (hwnd = overlayGui.Hwnd)
         disableZenMode()
 }
 
+; ---------- TIMER для автопереключения ----------
+WatchActive() {
+    global zen, zenHwnd
+    if !zen
+        return
+    current := WinGetID("A")
+    if (current != zenHwnd && current != 0) {
+        disableZenMode()
+        Sleep 50
+        toggleZenMode()           ; включаем Zen на новом окне
+    }
+}
+
 ; ===================================
-;      ВКЛ / ВЫКЛ  ZEN‑режима
+;    ВКЛ / ВЫКЛ   ZEN‑режима
 ; ===================================
 
 toggleZenMode() {
-    global zen, savedWin, marginH, marginV, overlayGui
+    global zen, savedWin, marginH, marginV, overlayGui, zenHwnd
 
     if zen {
         disableZenMode()
@@ -64,10 +80,10 @@ toggleZenMode() {
     Sleep 50
 
     ; --- монитор по центру окна ---
-    centerX := ox + ow//2,   centerY := oy + oh//2
+    centerX := ox + ow//2,  centerY := oy + oh//2
     mon := GetMonitorIndex(centerX, centerY)
     MonitorGetWorkArea(mon, &mL,&mT,&mR,&mB)
-    monW := mR - mL,   monH := mB - mT
+    monW := mR - mL,  monH := mB - mT
 
     newW := Round(monW * (1 - marginH*2))
     newH := Round(monH * (1 - marginV*2))
@@ -86,14 +102,16 @@ toggleZenMode() {
     WinActivate("ahk_id " hwnd)
 
     zen := true
+    zenHwnd := hwnd
+    SetTimer(Func("WatchActive"), 100)   ; каждые 100 мс проверяем Alt‑Tab
 }
 
 ; ===================================
-;      ВЫКЛ  ZEN‑режима
+;        ВЫКЛ  ZEN‑режима
 ; ===================================
 
 disableZenMode() {
-    global zen, savedWin, overlayGui
+    global zen, savedWin, overlayGui, zenHwnd
     if !zen
         return
 
@@ -111,10 +129,12 @@ disableZenMode() {
     overlayGui := ""
 
     zen := false
+    zenHwnd := 0
+    SetTimer(Func("WatchActive"), 0)      ; останавливаем таймер
 }
 
 ; ===================================
-;      ОДНА  ПОЛНОЭКРАННАЯ  ШТОРКА
+;          ШТОРКА‑OVERLAY
 ; ===================================
 
 createFullOverlay(x,y,w,h) {
