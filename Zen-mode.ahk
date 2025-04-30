@@ -106,74 +106,26 @@ toggleZenMode() {
     ; --- полноэкранная шторка ---
     virtL := SysGet(76), virtT := SysGet(77)
     virtW := SysGet(78), virtH := SysGet(79)
-    createFullOverlay(virtL, virtT, virtW, virtH)
-
-    WinSetAlwaysOnTop(1, hwnd)
-    WinActivate(hwnd)
-
-    zen := true
-}
-
-; ===================================
-;           ВЫКЛ  ZEN‑режима
-; ===================================
-
-disableZenMode() {
-    global zen, savedWin, overlayGui
-    if !zen
-        return
-
-    hwnd := savedWin["id"]
-    if WinExist("ahk_id " hwnd) {
-        Try {
-            if (savedWin["max"] = 1)
-                WinMaximize(hwnd)
-            else
-                WinMove(savedWin["x"], savedWin["y"], savedWin["w"], savedWin["h"], hwnd)
-            WinSetAlwaysOnTop(0, hwnd)
-        }
-    }
-
+    createFullOverlay(x,y,w,h) {
+    global overlayGui, overlayAlpha
     if IsObject(overlayGui)
         overlayGui.Destroy()
-    overlayGui := ""
-
-    zen := false
-}
-
-; ===================================
-;        ШТОРКА (GUI overlay)
-; ===================================
-
-createFullOverlay(x,y,w,h) {
-    global overlayGui, overlayAlpha, VarSetCapacity, NumPut
-    global overlayGui, overlayAlpha
-    ; инициализация переменных для вызова VarSetCapacity избегает ворнингов
-    accentPolicy := ""
-    wcadata := ""
-    overlayGui := Gui("-Caption +AlwaysOnTop +ToolWindow")
+    ; создаём GUI без AlwaysOnTop — будет под окном
+    overlayGui := Gui("-Caption +ToolWindow")
     overlayGui.BackColor := "Black"
     overlayGui.Show("x" x " y" y " w" w " h" h " NoActivate")
-    hwnd := overlayGui.Hwnd
-    ; включаем прозрачность
-    DllCall("SetLayeredWindowAttributes", "Ptr", hwnd, "UInt", 0, "UChar", overlayAlpha, "UInt", 0x2)
-    ; включаем эффект размытия через ACCENT_POLICY
-    VarSetCapacity(accentPolicy, 16)
-    NumPut(4, accentPolicy, 0, "UInt")    ; ACCENT_ENABLE_BLURBEHIND
-    NumPut(0, accentPolicy, 4, "UInt")
-    NumPut(0, accentPolicy, 8, "UInt")
-    NumPut(0, accentPolicy, 12, "UInt")
-    ; WINDOWCOMPOSITIONATTRIBDATA
-    size := A_PtrSize=8 ? 24 : 16
-    VarSetCapacity(wcadata, size)
-    NumPut(19, wcadata, 0, "UInt")        ; WCA_ACCENT_POLICY
-    NumPut(&accentPolicy, wcadata, A_PtrSize=8 ? 8 : 4, "Ptr") ; pData
-    NumPut(16, wcadata, A_PtrSize=8 ? 16 : 8, "UInt")          ; dataSize
-    DllCall("user32.dll\SetWindowCompositionAttribute", "Ptr", hwnd, "Ptr", &wcadata)
+    hwnd_overlay := overlayGui.Hwnd
+    ; прозрачность
+    DllCall("SetLayeredWindowAttributes", "Ptr", hwnd_overlay, "UInt", 0, "UChar", overlayAlpha, "UInt", 0x2)
+    ; опускаем шторку вниз уровня Z-Order (HWND_BOTTOM)
+    SWP_NOSIZE := 0x0001, SWP_NOMOVE := 0x0002, SWP_NOACTIVATE := 0x0010
+    flags := SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
+    DllCall("SetWindowPos", "Ptr", hwnd_overlay, "Ptr", 1  ; HWND_BOTTOM
+        , "Int", 0, "Int", 0, "Int", 0, "Int", 0
+        , "UInt", flags)
 }
 
-; ---------- индекс монитора по точке ----------
-GetMonitorIndex(px,py) {
+; индекс монитора по точке(px,py) {
     cnt := MonitorGetCount()
     Loop cnt {
         MonitorGetWorkArea(A_Index,&l,&t,&r,&b)
