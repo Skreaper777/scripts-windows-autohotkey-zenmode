@@ -139,8 +139,6 @@ GetMonitorIndex(px,py) {
     return MonitorGetPrimary()
 }
 
-}
-
 ; -----------------------------------
 ; WinEvent callback: EVENT_SYSTEM_FOREGROUND
 ; -----------------------------------
