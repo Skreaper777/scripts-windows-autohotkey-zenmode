@@ -83,54 +83,10 @@ toggleZenMode() {
     ; --- создаём одну полноэкранную шторку ---
     virtL := SysGet(76), virtT := SysGet(77)
     virtW := SysGet(78), virtH := SysGet(79)
-    createFullOverlay(virtL, virtT, virtW, virtH)
-
-    ; поднимаем окно над шторкой
-    WinSetAlwaysOnTop(1, "ahk_id " hwnd)
-    WinActivate("ahk_id " hwnd)
-
-    zen := true
-}
-
-; =========================================
-;   ВЫКЛ  ZEN‑режима
-; =========================================
-
-disableZenMode() {
-    global zen, savedWin, overlayGui
-    if !zen
-        return
-
-    hwnd := savedWin["id"]
-    if WinExist("ahk_id " hwnd) {
-        WinSetAlwaysOnTop(0, "ahk_id " hwnd)
-        if (savedWin["max"] = 1)
-            WinMaximize("ahk_id " hwnd)
-        else
-            WinMove(savedWin["x"], savedWin["y"], savedWin["w"], savedWin["h"], "ahk_id " hwnd)
-    }
-
-    if IsObject(overlayGui)
-        overlayGui.Destroy()
-    overlayGui := ""
-
-    zen := false
-}
-
-; =========================================
-;   ОДНА ПОЛНОЭКРАННАЯ ШТОРКА
-; =========================================
-
-createFullOverlay(vL,vT,vW,vH) {
-    global overlayGui, overlayAlpha
-
-    if IsObject(overlayGui)
-        overlayGui.Destroy()
-
-    overlayGui := Gui("-Caption +ToolWindow")
+        overlayGui := Gui("-Caption +AlwaysOnTop +ToolWindow")
     overlayGui.BackColor := "Black"
     overlayGui.Show("x" vL " y" vT " w" vW " h" vH " NoActivate")
-    WinSetTransparent(overlayAlpha, overlayGui.Hwnd)
+    WinSetTransparent(overlayAlpha, overlayGui.Hwnd)(overlayAlpha, overlayGui.Hwnd)
 }
 
 ; ---------- индекс монитора по точке ----------
