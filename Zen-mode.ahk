@@ -165,7 +165,7 @@ WinEventProc(hWinEventHook, event, hwndNew, idObject, idChild, dwThread, dwTime)
 ; -----------------------------------
 ; Удаляем хук при выходе
 ; -----------------------------------
-OnExit("CleanupHooks")
+OnExit(Func("CleanupHooks"))
 CleanupHooks(*) {
     global hCallHook
     if (hCallHook)
