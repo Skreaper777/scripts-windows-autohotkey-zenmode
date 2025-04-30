@@ -2,11 +2,11 @@
 #SingleInstance Force
 
 ; =========================================
-;  Zen-Mode v6.4-blur  — Alt-Tab «handoff» + DWM blur
+;  Zen-Mode v6.5-blur  — Alt-Tab «handoff» + DWM blur
 ; =========================================
 ;  • F1 / ^!z / ^F11 / F8 / !F2  → вкл/выкл Zen-режим.
-;  • Пока Zen активен: Alt↓ снимает, Alt↑(после выбора) включает на новом окне.
-;  • Шторка — полноэкранная, полупрозрачная, с размытой подложкой DWM.
+;  • Пока Zen активен: Alt↓ снимает Zen, Alt↑ включает на новом окне.
+;  • Шторка: полноэкранная, полупрозрачная, с размытой подложкой DWM.
 ;  • Поддержка maximized, multi-monitor (SysGet 76-79).
 ; -----------------------------------------
 
@@ -21,7 +21,7 @@ global hotkeyList := ["^!z", "^F11", "F8", "!F2", "F1"]
 global zen             := false   ; статус Zen
 global savedWin        := Map()   ; координаты + был Max
 global overlayGui      := ""      ; GUI-шторка
-global wasZenDuringAlt := false   ; флаг для Alt-Tab handoff
+global wasZenDuringAlt := false   ; флаг Alt-Tab handoff
 
 ; ---------- ГОРЯЧИЕ КЛАВИШИ ----------
 ToggleZen(*) => toggleZenMode()
@@ -57,7 +57,7 @@ OnOverlayClick(w,l,m,hwnd) {
 }
 
 ; ===================================
-;      ВКЛ / ВЫКЛ  ZEN-режима
+;          ВКЛ / ВЫКЛ  ZEN
 ; ===================================
 
 toggleZenMode() {
@@ -96,18 +96,16 @@ toggleZenMode() {
 
     WinMove(newX, newY, newW, newH, hwnd)
 
-    ; --- размытие-шторка на весь virtual desktop ---
-    virtL := SysGet(76),  virtT := SysGet(77)
-    virtW := SysGet(78),  virtH := SysGet(79)
-    createBlurOverlay(virtL, virtT, virtW, virtH)
+    ; --- размытaя шторка ---
+    createBlurOverlay(SysGet(76), SysGet(77), SysGet(78), SysGet(79))
 
-    WinSetAlwaysOnTop(hwnd)
+    WinSetAlwaysOnTop(1, hwnd)            ; ← правильный порядок аргументов
     WinActivate(hwnd)
     zen := true
 }
 
 ; ===================================
-;           ВЫКЛ  ZEN-режима
+;              ВЫКЛ  ZEN
 ; ===================================
 
 disableZenMode() {
@@ -133,7 +131,7 @@ disableZenMode() {
 }
 
 ; ===================================
-;       РАЗМЫТАЯ ШТОРКА (DWM Blur)
+;        РАЗМЫТАЯ ШТОРКА (DWM)
 ; ===================================
 
 createBlurOverlay(x, y, w, h) {
@@ -148,14 +146,14 @@ createBlurOverlay(x, y, w, h) {
     hwnd := overlayGui.Hwnd
 
     ; ---------- ACCENT_POLICY ----------
-    acc := Buffer(16, 0)                    ; 16-байтный нулевой буфер
-    NumPut("UInt", 4, acc, 0)               ; ACCENT_ENABLE_BLURBEHIND
+    acc := Buffer(16, 0)
+    NumPut("UInt", 4, acc, 0)                 ; ACCENT_ENABLE_BLURBEHIND = 4
 
     ; ---------- WINDOWCOMPOSITIONATTRIBDATA ----------
     wca := Buffer(A_PtrSize=8?24:16, 0)
-    NumPut("UInt", 19,      wca, 0)                         ; WCA_ACCENT_POLICY
-    NumPut("Ptr", acc.Ptr,  wca, A_PtrSize=8?8:4)           ; pData
-    NumPut("UPtr", acc.Size,wca, A_PtrSize=8?16:8)          ; Size
+    NumPut("UInt", 19,         wca, 0)        ; WCA_ACCENT_POLICY
+    NumPut("Ptr",  acc.Ptr,    wca, A_PtrSize=8?8:4)
+    NumPut("UPtr", acc.Size,   wca, A_PtrSize=8?16:8)
 
     ; ---------- применяем размытие ----------
     DllCall("user32\SetWindowCompositionAttribute"
@@ -165,7 +163,7 @@ createBlurOverlay(x, y, w, h) {
     ; ---------- полупрозрачность ----------
     DllCall("SetLayeredWindowAttributes"
         , "Ptr", hwnd, "UInt", 0
-        , "UChar", overlayAlpha, "UInt", 0x02)              ; LWA_ALPHA
+        , "UChar", overlayAlpha, "UInt", 0x02) ; LWA_ALPHA
 }
 
 ; ---------- индекс монитора по точке ----------
