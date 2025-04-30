@@ -148,6 +148,8 @@ disableZenMode() {
 ; ===================================
 
 createBlurOverlay(x,y,w,h) {
+    local acc, wca
+    global overlayGui, overlayAlpha
     global overlayGui, overlayAlpha
     if IsObject(overlayGui)
         overlayGui.Destroy()
@@ -156,9 +158,7 @@ createBlurOverlay(x,y,w,h) {
     overlayGui.Show("x" x " y" y " w" w " h" h " NoActivate")
     hwndOverlay := overlayGui.Hwnd
 
-    ; полупрозрачность
-    DllCall("SetLayeredWindowAttributes", "Ptr", hwndOverlay
-        , "UInt", 0, "UChar", overlayAlpha, "UInt", 0x2)
+
     ; активация blur behind
     VarSetCapacity(acc, 16)
     NumPut(4, acc, 0, "UInt")
