@@ -77,14 +77,17 @@ toggleZenMode() {
     newX := mL + Round(monW * marginH)
     newY := mT + Round(monH * marginV)
 
-    WinSetAlwaysOnTop(1, "ahk_id " hwnd)
-    WinActivate("ahk_id " hwnd)
+    WinActivate("ahk_id " hwnd)("ahk_id " hwnd)
     WinMove(newX, newY, newW, newH, "ahk_id " hwnd)
 
     ; --- создаём одну полноэкранную шторку ---
     virtL := SysGet(76), virtT := SysGet(77)
     virtW := SysGet(78), virtH := SysGet(79)
     createFullOverlay(virtL, virtT, virtW, virtH)
+
+    ; поднимаем окно над шторкой
+    WinSetAlwaysOnTop(1, "ahk_id " hwnd)
+    WinActivate("ahk_id " hwnd)
 
     ; поднимаем окно снова поверх шторки
     WinActivate("ahk_id " hwnd)
@@ -126,7 +129,7 @@ createFullOverlay(vL,vT,vW,vH) {
     if IsObject(overlayGui)
         overlayGui.Destroy()
 
-    overlayGui := Gui("-Caption +AlwaysOnTop +ToolWindow")
+    overlayGui := Gui("-Caption +ToolWindow")
     overlayGui.BackColor := "Black"
     overlayGui.Show("x" vL " y" vT " w" vW " h" vH " NoActivate")
     WinSetTransparent(overlayAlpha, overlayGui.Hwnd)
