@@ -63,7 +63,7 @@ toggleZenMode() {
         style := style & ~0x01000000  ; WS_MAXIMIZE
         DllCall("SetWindowLongPtr", "ptr", origWin, "int", -16, "ptr", style)
 
-        WinMove("ahk_id " origWin, newX, newY, newW, newH)
+        WinMove(origWin, newX, newY, newW, newH)
 
         createOverlay("L", 0, 0, newX, screenH)
 
