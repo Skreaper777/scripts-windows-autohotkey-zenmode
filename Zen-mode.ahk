@@ -14,7 +14,7 @@
 ; ---------- НАСТРОЙКА ----------
 global marginH := 0.25        ; пустота слева/справа (0‑1)
 global marginV := 0.10        ; пустота сверху/снизу (0‑1)
-global overlayAlpha := 140    ; 0‑255 (240 ≈ 94 %)
+global overlayAlpha := 240    ; 0‑255 (240 ≈ 94 %)
 
 global hotkeyList := ["^!z", "^F11", "F8", "!F2", "F1"]
 
@@ -141,32 +141,30 @@ disableZenMode() {
 ; ===================================
 
 createFullOverlay(x,y,w,h) {
+    global overlayGui, overlayAlpha, VarSetCapacity, NumPut
     global overlayGui, overlayAlpha
     if IsObject(overlayGui)
         overlayGui.Destroy()
-    ; создаём окно с поддержкой прозрачности и размытия фона
-    overlayGui := Gui("-Caption +AlwaysOnTop +ToolWindow +LastFound")
-    overlayGui.BackColor := "000000"
+    overlayGui := Gui("-Caption +AlwaysOnTop +ToolWindow")
+    overlayGui.BackColor := "Black"
     overlayGui.Show("x" x " y" y " w" w " h" h " NoActivate")
     hwnd := overlayGui.Hwnd
-    ; делаем полупрозрачным
+    ; включаем прозрачность
     DllCall("SetLayeredWindowAttributes", "Ptr", hwnd, "UInt", 0, "UChar", overlayAlpha, "UInt", 0x2)
-    ; включаем размытие через WCA_ACCENT_POLICY
-    accentSize := 16
-    VarSetCapacity(accentPolicy, accentSize)
-    NumPut(4, accentPolicy, 0, "UInt") ; ACCENT_ENABLE_BLURBEHIND
+    ; включаем эффект размытия через ACCENT_POLICY
+    VarSetCapacity(accentPolicy, 16)
+    NumPut(4, accentPolicy, 0, "UInt")    ; ACCENT_ENABLE_BLURBEHIND
     NumPut(0, accentPolicy, 4, "UInt")
     NumPut(0, accentPolicy, 8, "UInt")
     NumPut(0, accentPolicy, 12, "UInt")
-    VarSetCapacity(wcad, 24)
-    NumPut(19, wcad, 0, "UInt")       ; WCA_ACCENT_POLICY
-    ptr := DllCall("GlobalAlloc", "UInt", 0x40, "Ptr", accentSize)
-    NumPut(ptr, wcad, 8, "Ptr")       ; pData
-    NumPut(accentSize, wcad, 16, "UInt") ; DataSize
-    DllCall("RtlMoveMemory", "Ptr", ptr, "Ptr", &accentPolicy, "UPtr", accentSize)
-    DllCall("user32.dll\\SetWindowCompositionAttribute", "Ptr", hwnd, "Ptr", &wcad)
+    ; WINDOWCOMPOSITIONATTRIBDATA
+    size := A_PtrSize=8 ? 24 : 16
+    VarSetCapacity(wcadata, size)
+    NumPut(19, wcadata, 0, "UInt")        ; WCA_ACCENT_POLICY
+    NumPut(&accentPolicy, wcadata, A_PtrSize=8 ? 8 : 4, "Ptr") ; pData
+    NumPut(16, wcadata, A_PtrSize=8 ? 16 : 8, "UInt")          ; dataSize
+    DllCall("user32.dll\SetWindowCompositionAttribute", "Ptr", hwnd, "Ptr", &wcadata)
 }
-
 
 ; ---------- индекс монитора по точке ----------
 GetMonitorIndex(px,py) {
