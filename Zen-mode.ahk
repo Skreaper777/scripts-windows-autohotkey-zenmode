@@ -15,7 +15,7 @@ global WinData := Map()
         try WinSetAlwaysOnTop(false, id)
         try DllCall("ShowWindow", "ptr", id, "int", 1)  ; SW_SHOWNORMAL
         flags := 0x0040 | 0x0020 | 0x0004 ; SWP_SHOWWINDOW | SWP_FRAMECHANGED | SWP_NOZORDER
-            try WinMove(id, WinData["x"], WinData["y"], WinData["w"], WinData["h"])
+            try WinMove("ahk_id " id, WinData["x"], WinData["y"], WinData["w"], WinData["h"])
     }
     for name in ["L", "R", "T", "B"] {
         guiObj := GuiGet("Overlay" . name)
@@ -60,7 +60,7 @@ toggleZenMode() {
         style := style & ~0x01000000  ; WS_MAXIMIZE
         DllCall("SetWindowLongPtr", "ptr", win, "int", -16, "ptr", style)
 
-        WinMove(win, newX, newY, newW, newH)
+        WinMove("ahk_id " win, newX, newY, newW, newH)
 
         createOverlay("L", 0, 0, newX, screenH)
 
