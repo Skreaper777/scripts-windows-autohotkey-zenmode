@@ -14,7 +14,8 @@ global WinData := Map()
     if id {
         try WinSetAlwaysOnTop(false, id)
         try DllCall("ShowWindow", "ptr", id, "int", 9)
-        try DllCall("SetWindowPos", "ptr", id, "ptr", 0, "int", WinData["x"], "int", WinData["y"], "int", WinData["w"], "int", WinData["h"], "uint", 0)
+        flags := 0x0040 | 0x0020 | 0x0004 ; SWP_SHOWWINDOW | SWP_FRAMECHANGED | SWP_NOZORDER
+            try DllCall("SetWindowPos", "ptr", id, "ptr", 0, "int", WinData["x"], "int", WinData["y"], "int", WinData["w"], "int", WinData["h"], "uint", flags)
     }
     for name in ["L", "R", "T", "B"] {
         guiObj := GuiGet("Overlay" . name)
@@ -54,7 +55,8 @@ toggleZenMode() {
         try WinSetAlwaysOnTop(true, win)
         try WinActivate(win)
 
-        result := DllCall("SetWindowPos", "ptr", win, "ptr", 0, "int", newX, "int", newY, "int", newW, "int", newH, "uint", 0)
+        flags := 0x0040 | 0x0020 | 0x0004 ; SWP_SHOWWINDOW | SWP_FRAMECHANGED | SWP_NOZORDER
+        result := DllCall("SetWindowPos", "ptr", win, "ptr", 0, "int", newX, "int", newY, "int", newW, "int", newH, "uint", flags)
         if (result = 0) {
             err := DllCall("GetLastError")
             TrayTip "Zen Mode", "Ошибка SetWindowPos. Код: " err, 1
