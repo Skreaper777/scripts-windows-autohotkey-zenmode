@@ -5,48 +5,23 @@
 ;  Zen-Mode v8.6 — обновлённая версия с исправлением фоновой картинки и синтаксисом ActionHotkey v2
 ; =============================================================
 
-#Include <ActionHotkey>  ; библиотека ActionHotkey v2
-
-; ------------ Очистка GDI+ при выходе ------------
-OnExit("Shutdown")
-
-; ---------------------- ИНИЦИАЛИЗАЦИЯ GDI+ ----------------------
-if !DllCall("GetModuleHandle", "Str", "gdiplus.dll")
-    GdipStartup(0)
-
-; ---------- ПАРАМЕТРЫ ОКНА ----------
-global marginH       := 0.30
-global marginV       := 0.05
-
-global marginH_2     := 0.35
-global marginV_2     := 0.15
-
-; ---------- ШТОРКА / BACKDROP ----------
-global enableImageBackground := true
-global imageBackgroundPath := "E:\pic.jpg"
-
-global bgColor        := "000000"
-global bgAlpha        := 250
-global bgBlurStrength := 8
-
-global overlayTopmost := true
-global enableEscExit := true
-
-; ---------- СЛУЖЕБНЫЕ ----------
-global zen := false, savedWin := Map(), guiBlur := "", guiImgList := []
-global altPressed := false, wasZenDuringAltTab := false
-
 ; =============================================================
-;                 РЕГИСТРАЦИЯ HOTKEY'ев через ActionHotkey v2
+;                 РЕГИСТРАЦИЯ HOTKEY'ев
 ; =============================================================
-hk := new Hotkey()
-hk.Add("^!z", Func("toggleZenMode").Bind(marginH, marginV))
-hk.Add("F1", Func("toggleZenMode").Bind(marginH, marginV))
-hk.Add("F2", Func("toggleZenMode").Bind(marginH_2, marginV_2))
-hk.Add("^!x", Func("disableZenMode"))
-if enableEscExit
-    hk.Add("Esc", Func("escExit"))
-hk.Install()
+registerHotkeys() {
+    Toggle1 := (*) => toggleZenMode(marginH, marginV)
+    Toggle2 := (*) => toggleZenMode(marginH_2, marginV_2)
+
+    for hkKey in hotkeyList
+        Hotkey(hkKey, Toggle1)
+    for hkKey in hotkeyList_2
+        Hotkey(hkKey, Toggle2)
+
+    Hotkey("^!x", (*) => disableZenMode())
+    if enableEscExit
+        Hotkey("*Esc", escExit)
+}
+registerHotkeys()
 
 ; =============================================================
 ;                         ALT + TAB
