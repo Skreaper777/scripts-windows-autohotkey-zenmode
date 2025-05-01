@@ -2,11 +2,16 @@
 #SingleInstance Force
 
 ; =============================================================
-;  Zen‑Mode v9.0 — финальный фикс дубликата GetMonitorIndex
+;  Zen‑Mode v9.1 — Blur возвращён, картинка видна, Alt‑Tab чинится
 ; =============================================================
-;  • Удалён лишний хвост «(px,py) { … }», оставлена ровно одна
-;    корректная функция GetMonitorIndex — больше никаких «Return's
-;    parameter should be blank…».
+;  • Blur: AccentFlags убраны, некорректный Integer() заменён.
+;    Любое bgBlurStrength > 0 ⇒ включить ACCENT_ENABLE_BLURBEHIND.
+;  • Картинка‑фон создаётся *после* цветового слоя, чтобы быть видимой;
+;    её альфа = 255 (непрозрачная).
+;  • Alt‑Tab: возвращён проверенный алгоритм (v8.6):
+;      Alt Down → altPressed := true
+;      Tab Up   → выходим из Zen, ждём Alt Up
+;      Alt Up   → ставим новое активное окно в центр.
 ; =============================================================
 
 ; ---------- ПАРАМЕТРЫ ОКНА ----------
@@ -21,9 +26,9 @@ global enableImageBackground := true
 
 global imageBackgroundPath := "E:\\pic.jpg"
 
-global bgColor        := "000000"
-global bgAlpha        := 180     ; 0‑255 (0 непрозр.)
-global bgBlurStrength := 8       ; 0‑19 (0 blur off)
+global bgColor        := "000000"  ; шестнадцатеричный без «#»
+global bgAlpha        := 180       ; 0 (непрозрачный) … 255 (прозрачный)
+global bgBlurStrength := 1         ; 0 = blur OFF, >0 = ON
 
 global overlayTopmost := true
 
@@ -35,13 +40,13 @@ global hotkeyList_2 := ["F2"]
 
 ; ---------- СЛУЖЕБНЫЕ ----------
 global zen := false, savedWin := Map()
-global guiBlur := ""            ; цвет/blur слой
+global guiBlur := ""            ; слой цвета+blur
 global guiImgList := []         ; массив картинок
 
-global altPressed := false, wasZenDuringAltTab := false, altPrevHwnd := 0
+global altPressed := false, waitNewWin := false
 
 ; =============================================================
-;              Р Е Г И С Т Р А Ц И Я  H O T K E Y S
+;                    РЕГИСТРАЦИЯ  HOTKEYS
 ; =============================================================
 registerHotkeys() {
     Toggle1 := (*) => toggleZenMode(marginH,  marginV )
@@ -63,32 +68,23 @@ registerHotkeys()
 ; =============================================================
 ;                           ALT + TAB
 ; =============================================================
-~Alt::{
-    altPressed := true
-    altPrevHwnd := WinGetID("A")
-}
+~Alt::  altPressed := true
 
-~Tab::{
-    global zen, altPressed, wasZenDuringAltTab
+~Tab Up::{                      ; Tab отпущен при зажатом Alt → выйти из Zen
+    global zen, altPressed, waitNewWin
     if zen && altPressed {
-        wasZenDuringAltTab := true
         disableZenMode()
+        waitNewWin := true      ; ждём новое окно после Alt Up
     }
 }
 
-~Alt Up::{
-    global altPressed, wasZenDuringAltTab, altPrevHwnd
+~Alt Up::{                     ; Alt отпустили → если ждали, включаем Zen
+    global altPressed, waitNewWin
     altPressed := false
-    if wasZenDuringAltTab {
-        wasZenDuringAltTab := false
-        Loop 40 {
-            Sleep 300
-            hwnd := WinGetID("A")
-            if (hwnd != altPrevHwnd && hwnd) {
-                toggleZenMode()
-                break
-            }
-        }
+    if waitNewWin {
+        waitNewWin := false
+        Sleep 100               ; дать окну активироваться
+        toggleZenMode()
     }
 }
 
@@ -98,7 +94,7 @@ escExit(*){
 }
 
 ; =============================================================
-;                    В К Л / В Ы К Л  Z E N
+;                    ВКЛ / ВЫКЛ  ZEN
 ; =============================================================
 toggleZenMode(hMargin := marginH, vMargin := marginV) {
     global zen, savedWin
@@ -120,7 +116,7 @@ toggleZenMode(hMargin := marginH, vMargin := marginV) {
 
     if (wasMax = 1) {
         WinRestore(hwnd)
-        Sleep 300
+        Sleep 50
     }
 
     centerX := ox + ow//2, centerY := oy + oh//2
@@ -168,20 +164,22 @@ disableZenMode() {
 }
 
 ; =============================================================
-;                   Ш Т О Р К А (per‑monitor)
+;                    ШТОРКА (по мониторам)
 ; =============================================================
 createBackdropLayers() {
     global enableImageBackground, imageBackgroundPath
 
+    ; 1) Цвет + blur (верхний слой)
+    vx := SysGet(76), vy := SysGet(77), vw := SysGet(78), vh := SysGet(79)
+    createBlurOverlay(vx, vy, vw, vh)
+
+    ; 2) Картинка под цветным слоем
     if enableImageBackground && FileExist(imageBackgroundPath) {
         Loop MonitorGetCount() {
-            MonitorGetWorkArea(A_Index, &l, &t, &r, &b)
+            MonitorGetWorkArea(A_Index,&l,&t,&r,&b)
             createImageOverlay(l, t, r-l, b-t)
         }
     }
-
-    vx := SysGet(76), vy := SysGet(77), vw := SysGet(78), vh := SysGet(79)
-    createBlurOverlay(vx, vy, vw, vh)
 }
 
 ; ---------- цвет + (опц.) blur ----------
@@ -194,7 +192,6 @@ createBlurOverlay(x,y,w,h) {
     flags := "-Caption +ToolWindow +LastFound" . (overlayTopmost ? " +AlwaysOnTop" : "")
     guiBlur := Gui(flags)
     guiBlur.BackColor := bgColor
-
     guiBlur.AddText(Format("x0 y0 w{} h{}", w, h), "").OnEvent("Click", (*)=>disableZenMode())
     guiBlur.Show(Format("x{} y{} w{} h{} NoActivate", x, y, w, h))
 
@@ -203,13 +200,15 @@ createBlurOverlay(x,y,w,h) {
     DllCall("SetWindowLong", "Ptr", hwnd, "Int", -20, "Ptr", ex)
     DllCall("SetLayeredWindowAttributes", "Ptr", hwnd, "UInt", 0, "UChar", bgAlpha, "UInt", 0x02)
 
+    ; ------------ Blur -------------
     if (bgBlurStrength > 0) {
         pSetWCA := DllCall("GetProcAddress", "Ptr", DllCall("GetModuleHandle", "Str", "user32"), "AStr", "SetWindowCompositionAttribute", "Ptr")
         if pSetWCA {
             acc := Buffer(16,0)
-            NumPut("UInt",4,acc,0), NumPut("UInt",bgBlurStrength,acc,4)
-            alpha := 255-bgAlpha, rgb := "0x" SubStr(bgColor,5,2) SubStr(bgColor,3,2) SubStr(bgColor,1,2)
-            NumPut("UInt",(alpha<<24)|(Integer(rgb)&0xFFFFFF),acc,8)
+            NumPut("UInt", 3, acc, 0)          ; ACCENT_ENABLE_BLURBEHIND
+            NumPut("UInt", 0, acc, 4)          ; AccentFlags = 0
+            gradColor := ( (255-bgAlpha) << 24 ) | ( "0x" bgColor + 0 )
+            NumPut("UInt", gradColor, acc, 8)
             wca := Buffer(A_PtrSize=8?24:16,0)
             NumPut("UInt",19,wca,0), NumPut("Ptr",acc.Ptr,wca,A_PtrSize=8?8:4), NumPut("UPtr",acc.Size,wca,A_PtrSize=8?16:8)
             DllCall(pSetWCA, "Ptr", hwnd, "Ptr", wca.Ptr)
@@ -219,7 +218,7 @@ createBlurOverlay(x,y,w,h) {
 
 ; ---------- картинка (cover) ----------
 createImageOverlay(x,y,wMon,hMon) {
-    global guiImgList, imageBackgroundPath, bgAlpha, overlayTopmost
+    global guiImgList, imageBackgroundPath, overlayTopmost
 
     flags := "-Caption +ToolWindow +LastFound" . (overlayTopmost ? " +AlwaysOnTop" : "")
     picGui := Gui(flags)
@@ -234,30 +233,26 @@ createImageOverlay(x,y,wMon,hMon) {
     imgRatio := imgW / imgH
 
     if (monRatio >= imgRatio) {
-        newW := wMon
-        scale := imgW / newW
-        newH := Floor(imgH / scale)
-        offsetX := 0
-        offsetY := (hMon - newH)//2
+        newW := wMon, newH := Floor(imgH * (wMon / imgW))
+        offsetX := 0, offsetY := (hMon - newH)//2
     } else {
-        newH := hMon
-        scale := imgH / newH
-        newW := Floor(imgW / scale)
-        offsetY := 0
-        offsetX := (wMon - newW)//2
+        newH := hMon, newW := Floor(imgW * (hMon / imgH))
+        offsetY := 0, offsetX := (wMon - newW)//2
     }
 
     picGui.AddPicture(Format("x{} y{} w{} h{} +Center", offsetX, offsetY, newW, newH), imageBackgroundPath)
     picGui.Show(Format("x{} y{} w{} h{} NoActivate", x, y, wMon, hMon))
 
-    DllCall("SetLayeredWindowAttributes", "Ptr", picGui.Hwnd, "UInt", 0, "UChar", bgAlpha, "UInt", 0x02)
+    ; картинка непрозрачна
+    DllCall("SetLayeredWindowAttributes", "Ptr", picGui.Hwnd, "UInt", 0, "UChar", 0, "UInt", 0x02)
+
     guiImgList.Push(picGui)
 }
 
 ; --- размеры изображения (без GDI+) ---
 ImageSize(path, &w, &h) {
     w := h := 0
-    hBitmap := LoadPicture(path) ; HBITMAP (NULL on failure)
+    hBitmap := LoadPicture(path, "G") ; гарантируем Bitmap
     if (hBitmap) {
         bm := Buffer(24, 0)
         if (DllCall("GetObject", "Ptr", hBitmap, "Int", 24, "Ptr", bm.Ptr)) {
