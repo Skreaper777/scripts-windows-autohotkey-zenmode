@@ -2,11 +2,11 @@
 #SingleInstance Force
 
 ; =============================================================
-;  Zen‑Mode v8.7 — стабильный GDI+ и Alt‑Tab; устранены #Warn‑ошибки
+;  Zen‑Mode v9.0 — финальный фикс дубликата GetMonitorIndex
 ; =============================================================
-;  • createImageOverlay: переменная picGui (не «gui») → нет конфликта.
-;  • ImageSize: запускаем GDI+ один раз, без VarSetCapacity‑варнингов;
-;    корректный вызов «gdiplus» и получение ширины/высоты.
+;  • Удалён лишний хвост «(px,py) { … }», оставлена ровно одна
+;    корректная функция GetMonitorIndex — больше никаких «Return's
+;    parameter should be blank…».
 ; =============================================================
 
 ; ---------- ПАРАМЕТРЫ ОКНА ----------
@@ -251,38 +251,4 @@ createImageOverlay(x,y,wMon,hMon) {
     picGui.Show(Format("x{} y{} w{} h{} NoActivate", x, y, wMon, hMon))
 
     DllCall("SetLayeredWindowAttributes", "Ptr", picGui.Hwnd, "UInt", 0, "UChar", bgAlpha, "UInt", 0x02)
-    guiImgList.Push(picGui)
-}
-
-; --- размеры изображения (без GDI+) ---
-ImageSize(path, &w, &h) {
-    w := h := 0
-    hBitmap := LoadPicture(path) ; HBITMAP (NULL on failure)
-    if (hBitmap) {
-        bm := Buffer(24, 0)
-        if (DllCall("GetObject", "Ptr", hBitmap, "Int", 24, "Ptr", bm.Ptr)) {
-            w := NumGet(bm, 4, "Int")
-            h := NumGet(bm, 8, "Int")
-        }
-        DllCall("DeleteObject", "Ptr", hBitmap)
-        return (w > 0 && h > 0)
-    }
-    return false
-}
-
-; ---------- монитор по точке ----------
-GetMonitorIndex(px,py) {
-    Loop MonitorGetCount() {
-        MonitorGetWorkArea(A_Index,&l,&t,&r,&b)
-        if (px>=l && px<r && py>=t && py<b)
-            return A_Index
-    }
-    return MonitorGetPrimary()
-}(px,py) {
-    Loop MonitorGetCount() {
-        MonitorGetWorkArea(A_Index,&l,&t,&r,&b)
-        if (px>=l && px<r && py>=t && py<b)
-            return A_Index
-    }
-    return MonitorGetPrimary()
-}
+    gui
