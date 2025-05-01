@@ -2,11 +2,11 @@
 #SingleInstance Force
 
 ; =============================================================
-;  Zen-Mode v8.4 — per-monitor JPG фон, AlwaysOnTop по умолчанию
+;  Zen‑Mode v8.4 — per‑monitor JPG фон, AlwaysOnTop по умолчанию
 ; =============================================================
 ;  • overlayTopmost снова true — шторка поверх всех окон.
 ;  • imageBackgroundPath → "E:\\pic.jpg" (JPG).
-;  • Картинка-задник растягивается *отдельно* на каждый монитор:
+;  • Картинка‑задник растягивается *отдельно* на каждый монитор:
 ;    берётся *высота* монитора, пропорции сохраняются (ширина автоподстройка).
 ;  • guiImg заменён на массив guiImgList, чтобы хранить несколько GUI.
 ; =============================================================
@@ -22,15 +22,15 @@ global marginV_2     := 0.15
 global enableImageBackground := true
 
 ; Путь к картинке (JPG)
-global imageBackgroundPath := "E:\\pic4.jpg"
+global imageBackgroundPath := "E:\\pic.jpg"
 
 ; Верхний цветной слой
 global bgColor        := "000000"
-global bgAlpha        := 180        ; 0-255  (0 = полностью непрозрачный, 255 = полностью прозрачный)
-global bgBlurStrength := 8          ; 0-19   (0 = blur off; ~19 = максимум)
+global bgAlpha        := 180        ; 0‑255  (0 = полностью непрозрачный, 255 = полностью прозрачный)
+global bgBlurStrength := 8          ; 0‑19   (0 = blur off; ~19 = максимум)
 
 ; Делать ли слои шторки AlwaysOnTop?
-global overlayTopmost := true
+global overlayTopmost := false
 
 ; ---------- ПРОЧЕЕ ----------
 global enableEscExit := true
@@ -165,13 +165,14 @@ disableZenMode() {
 }
 
 ; =============================================================
-;                     Ш Т О Р К А (per-monitor)
+;                     Ш Т О Р К А (per‑monitor)
 ; =============================================================
 createBackdropLayers() {
     global enableImageBackground
 
     ; 1) Цвет + (опц.) blur по всей виртуальной области
-    SysGet 76,&vx, 77,&vy, 78,&vw, 79,&vh   ; виртуальные координаты
+        ; Получаем виртуальные координаты экрана
+    vx := SysGet(76), vy := SysGet(77), vw := SysGet(78), vh := SysGet(79)
     createBlurOverlay(vx,vy,vw,vh)
 
     ; 2) Картинка на каждом мониторе
