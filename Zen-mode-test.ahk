@@ -1,4 +1,5 @@
 ﻿#Requires AutoHotkey v2.0
+#Warn, Off  ; Отключаем предупреждения
 #SingleInstance Force
 
 ; ---------- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ----------
@@ -20,7 +21,7 @@ global enableImageBackground := true
 
 global imageBackgroundPath := "E:\pic.jpg"
 
-global overlayTopmost := false
+global overlayTopmost := true
 
 global bgColor := "000000"
 
@@ -173,9 +174,11 @@ createBlurOverlay(x,y,w,h) {
     guiBlur := Gui(flags)
     guiBlur.BackColor := bgColor
     ; Показываем окно без дополнительных контролов
+    ; Показываем окно без дополнительных контролов и регистрируем клик по невидимому контролу
+    controlID := "ClickOverlay"
+    ctrl := guiBlur.AddText(Format("x0 y0 w{} h{}", w, h), controlID)
+    ctrl.OnEvent("Click", Func("disableZenMode"))
     guiBlur.Show(Format("x{} y{} w{} h{} NoActivate", x, y, w, h))
-    ; Клик по окну отключает Zen Mode
-    guiBlur.OnEvent("Click", Func("disableZenMode"))
     hwnd := guiBlur.Hwnd
     ex := DllCall("GetWindowLong", "Ptr", hwnd, "Int", -20, "Ptr") | 0x80000
     DllCall("SetWindowLong", "Ptr", hwnd, "Int", -20, "Ptr", ex)
