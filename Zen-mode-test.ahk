@@ -191,6 +191,7 @@ GetMonitorIndex(px,py) {
 }
 
 Shutdown(*) {
-    if IsFunc("GdipShutdown")
+    global
+    if IsSet(GdipShutdown) && IsFunc(GdipShutdown)
         GdipShutdown()
 }
