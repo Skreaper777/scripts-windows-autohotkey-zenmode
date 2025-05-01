@@ -1,26 +1,49 @@
 ﻿#Requires AutoHotkey v2.0
 #SingleInstance Force
 
+; ---------- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ----------
+global marginH := 0.30
+
+global marginV := 0.05
+
+global marginH_2 := 0.35
+
+global marginV_2 := 0.15
+
+global hotkeyList := ["^!z","F1"]
+
+global hotkeyList_2 := ["F2"]
+
+global enableEscExit := true
+
+global enableImageBackground := true
+
+global imageBackgroundPath := "E:\pic.jpg"
+
+global overlayTopmost := true
+
+global bgColor := "000000"
+
+global bgAlpha := 250
+
+global bgBlurStrength := 8
+
+global zen := false
+
+global savedWin := Map()
+
+global guiBlur := ""
+
+global guiImgList := []
+
+global altPressed := false
+
+global wasZenDuringAltTab := false
+
+
 ; =============================================================
 ;  Zen-Mode v8.6 — обновлённая версия с исправлением фоновой картинки и синтаксисом ActionHotkey v2
 ; =============================================================
-
-; =============================================================
-;                 ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (Добавлены!)
-; =============================================================
-global marginH := 0.1, marginV := 0.1
-      , marginH_2 := 0.05, marginV_2 := 0.05
-      , hotkeyList := ["^+z"]
-      , hotkeyList_2 := ["^+x"]
-      , enableEscExit := true
-      , enableImageBackground := true
-      , imageBackgroundPath := "C:\\Path\\To\\Your\\Image.jpg"
-      , bgColor := "000000", bgAlpha := 128, bgBlurStrength := 2
-      , overlayTopmost := true
-      , zen := false, wasZenDuringAltTab := false
-      , altPressed := false
-      , guiBlur := "", guiImgList := []
-      , savedWin := Map()
 
 ; =============================================================
 ;                 РЕГИСТРАЦИЯ HOTKEY'ев
@@ -84,10 +107,11 @@ toggleZenMode(hMargin := marginH, vMargin := marginV) {
     WinGetPos(&ox,&oy,&ow,&oh, hwnd)
     wasMax := WinGetMinMax(hwnd)
     savedWin := Map("id",hwnd,"x",ox,"y",oy,"w",ow,"h",oh,"max",wasMax)
-    if (wasMax = 1) {
-        WinRestore(hwnd)
-        Sleep 50
-    }
+    if (wasMax = 1)
+{
+    WinRestore(hwnd)
+    Sleep 50
+}
     centerX := ox + ow//2, centerY := oy + oh//2
     mon := GetMonitorIndex(centerX, centerY)
     MonitorGetWorkArea(mon,&mL,&mT,&mR,&mB)
@@ -191,7 +215,6 @@ GetMonitorIndex(px,py) {
 }
 
 Shutdown(*) {
-    global
-    if IsSet(GdipShutdown) && IsFunc(GdipShutdown)
+    if IsFunc("GdipShutdown")
         GdipShutdown()
 }
