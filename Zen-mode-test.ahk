@@ -6,6 +6,23 @@
 ; =============================================================
 
 ; =============================================================
+;                 ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (Добавлены!)
+; =============================================================
+global marginH := 0.1, marginV := 0.1
+      , marginH_2 := 0.05, marginV_2 := 0.05
+      , hotkeyList := ["^+z"]
+      , hotkeyList_2 := ["^+x"]
+      , enableEscExit := true
+      , enableImageBackground := true
+      , imageBackgroundPath := "C:\\Path\\To\\Your\\Image.jpg"
+      , bgColor := "000000", bgAlpha := 128, bgBlurStrength := 2
+      , overlayTopmost := true
+      , zen := false, wasZenDuringAltTab := false
+      , altPressed := false
+      , guiBlur := "", guiImgList := []
+      , savedWin := Map()
+
+; =============================================================
 ;                 РЕГИСТРАЦИЯ HOTKEY'ев
 ; =============================================================
 registerHotkeys() {
@@ -67,7 +84,10 @@ toggleZenMode(hMargin := marginH, vMargin := marginV) {
     WinGetPos(&ox,&oy,&ow,&oh, hwnd)
     wasMax := WinGetMinMax(hwnd)
     savedWin := Map("id",hwnd,"x",ox,"y",oy,"w",ow,"h",oh,"max",wasMax)
-    if (wasMax = 1) { WinRestore(hwnd), Sleep 50 }
+    if (wasMax = 1) {
+        WinRestore(hwnd)
+        Sleep 50
+    }
     centerX := ox + ow//2, centerY := oy + oh//2
     mon := GetMonitorIndex(centerX, centerY)
     MonitorGetWorkArea(mon,&mL,&mT,&mR,&mB)
