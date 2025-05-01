@@ -256,13 +256,16 @@ createImageOverlay(x,y,wMon,hMon) {
 
 ; --- размеры изображения (без GDI+) ---
 ImageSize(path, &w, &h) {
-    ; Используем встроенную LoadPicture, которая возвращает HBITMAP и даёт размеры
     w := h := 0
-    pic := LoadPicture(path, "", &w, &h)
-    if (pic) {
-        ; освобождаем ресурс
-        DllCall("DeleteObject", "Ptr", pic)
-        return (w>0 && h>0)
+    hBitmap := LoadPicture(path) ; HBITMAP (NULL on failure)
+    if (hBitmap) {
+        bm := Buffer(24, 0)
+        if (DllCall("GetObject", "Ptr", hBitmap, "Int", 24, "Ptr", bm.Ptr)) {
+            w := NumGet(bm, 4, "Int")
+            h := NumGet(bm, 8, "Int")
+        }
+        DllCall("DeleteObject", "Ptr", hBitmap)
+        return (w > 0 && h > 0)
     }
     return false
 }
