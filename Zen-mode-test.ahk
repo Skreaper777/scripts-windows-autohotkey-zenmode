@@ -30,7 +30,7 @@ global bgAlpha        := 180        ; 0‑255  (0 = полностью непр�
 global bgBlurStrength := 8          ; 0‑19   (0 = blur off; ~19 = максимум)
 
 ; Делать ли слои шторки AlwaysOnTop?
-global overlayTopmost := false
+global overlayTopmost := true
 
 ; ---------- ПРОЧЕЕ ----------
 global enableEscExit := true
@@ -180,8 +180,20 @@ createBackdropLayers() {
         loop MonitorGetCount()
         {
             MonitorGetWorkArea(A_Index,&l,&t,&r,&b)
-            createImageOverlay(l,t,r-l,b-t)
-        }
+            createImageOverlay(x,y,w,h) {
+    global guiImgList, imageBackgroundPath, bgAlpha, overlayTopmost
+
+    flags := "-Caption +ToolWindow +LastFound" . (overlayTopmost ? " +AlwaysOnTop" : "")
+    imgGui := Gui(flags)                       ; локальная переменная, чтобы не путать с классом Gui
+
+    ; Тянем картинку по высоте, сохраняя пропорции
+    imgGui.AddPicture(Format("x0 y0 h{} +Center", h), imageBackgroundPath)
+    imgGui.Show(Format("x{} y{} w{} h{} NoActivate", x, y, w, h))
+
+    hwnd := imgGui.Hwnd
+    DllCall("SetLayeredWindowAttributes", "Ptr", hwnd, "UInt", 0, "UChar", bgAlpha, "UInt", 0x02)
+
+    guiImgList.Push(imgGui)   ; сохраняем для последующего Destroy
 }
 
 ; ---------- слой №2: цвет + (опц.) blur ----------
