@@ -17,13 +17,13 @@ global marginH_2     := 0.35
 global marginV_2     := 0.15
 
 ; ---------- ШТОРКА / BACKDROP ----------
-global enableImageBackground := false
+global enableImageBackground := true
 
 global imageBackgroundPath := "E:\\pic.jpg"
 
 global bgColor        := "000000"
-global bgAlpha        := 235     ; 0‑255 (0 непрозр.)
-global bgBlurStrength := 0       ; 0‑19 (0 blur off)
+global bgAlpha        := 180     ; 0‑255 (0 непрозр.)
+global bgBlurStrength := 8       ; 0‑19 (0 blur off)
 
 global overlayTopmost := true
 
@@ -82,7 +82,7 @@ registerHotkeys()
     if wasZenDuringAltTab {
         wasZenDuringAltTab := false
         Loop 40 {
-            Sleep 50
+            Sleep 300
             hwnd := WinGetID("A")
             if (hwnd != altPrevHwnd && hwnd) {
                 toggleZenMode()
@@ -120,7 +120,7 @@ toggleZenMode(hMargin := marginH, vMargin := marginV) {
 
     if (wasMax = 1) {
         WinRestore(hwnd)
-        Sleep 50
+        Sleep 300
     }
 
     centerX := ox + ow//2, centerY := oy + oh//2
