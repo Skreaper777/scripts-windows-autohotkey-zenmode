@@ -2,11 +2,11 @@
 #SingleInstance Force
 
 ; =============================================================
-;  Zen-Mode v8.6 — окончательное удаление дубликатов
+;  Zen‑Mode v8.6 — Alt‑Tab fix + идеальное растягивание фона
 ; =============================================================
-;  • В скрипте гарантированно *один* createImageOverlay.
-;  • Файл компилируется без «Func exists».  Все предыдущие конфликты
-;    устранены полной перезаписью контента.
+;  • Alt‑Tab: ждём смены активного окна → новое окно в Zen.
+;  • Порядок слоёв: [раб. стол] → картинка → цвет/blur → окно Zen.
+;  • Картинка заполняет монитор без искажений (cover‑алгоритм).
 ; =============================================================
 
 ; ---------- ПАРАМЕТРЫ ОКНА ----------
@@ -19,14 +19,12 @@ global marginV_2     := 0.15
 ; ---------- ШТОРКА / BACKDROP ----------
 global enableImageBackground := true
 
-; Путь к картинке (JPG)
 global imageBackgroundPath := "E:\\pic.jpg"
 
-; Полупрозрачный цветной слой
-;  bgAlpha: 0 (непрозр.) … 255 (прозрачный)
-;  bgBlurStrength: 0 (blur off) … ~19 (макс.)
 global bgColor        := "000000"
-global bgAlpha        := 250
+; 0 .. 255  (0 непрозрачный)
+global bgAlpha        := 180
+; 0 .. 19   (0 blur off)
 global bgBlurStrength := 8
 
 global overlayTopmost := true
@@ -39,13 +37,13 @@ global hotkeyList_2 := ["F2"]
 
 ; ---------- СЛУЖЕБНЫЕ ----------
 global zen := false, savedWin := Map()
-global guiBlur := ""
-global guiImgList := []
+global guiBlur := ""            ; слой цвета/blur
+global guiImgList := []         ; картинки‑по‑мониторам
 
-global altPressed := false, wasZenDuringAltTab := false
+global altPressed := false, wasZenDuringAltTab := false, altPrevHwnd := 0
 
 ; =============================================================
-;                 РЕГИСТРАЦИЯ Gоткейев
+;              Р Е Г И С Т Р А Ц И Я  H O T K E Y S
 ; =============================================================
 registerHotkeys() {
     Toggle1 := (*) => toggleZenMode(marginH,  marginV )
@@ -65,28 +63,39 @@ registerHotkeys() {
 registerHotkeys()
 
 ; =============================================================
-;                         ALT + TAB
+;                           ALT + TAB
 ; =============================================================
-~Alt:: altPressed := true
-~Alt Up::{
-    global altPressed, wasZenDuringAltTab
-    altPressed := false
-    if wasZenDuringAltTab {
-        wasZenDuringAltTab := false
-        Sleep 120
-        toggleZenMode()
+~Alt::{
+    altPressed := true
+    altPrevHwnd := WinGetID("A")       ; запоминаем исходное окно
+}
+
+~Tab::{                      ; Tab вниз — выходим из Zen
+    global zen, altPressed, wasZenDuringAltTab
+    if zen && altPressed {
+        wasZenDuringAltTab := true
+        disableZenMode()
     }
 }
 
-~Tab::{
-    global zen, altPressed
-    if zen && altPressed
-        wasZenDuringAltTab := true,
-        disableZenMode()
+~Alt Up::{                   ; Alt отпущен → ждём новое окно
+    global altPressed, wasZenDuringAltTab, altPrevHwnd
+    altPressed := false
+    if wasZenDuringAltTab {
+        wasZenDuringAltTab := false
+        ; ждём, пока активное окно сменится с предыдущего
+        Loop 40 {                             ; макс 2 сек
+            Sleep 50
+            hwnd := WinGetID("A")
+            if (hwnd != altPrevHwnd && hwnd) {
+                toggleZenMode()              ; новое окно в Zen
+                break
+            }
+        }
+    }
 }
 
 escExit(*){
-    global zen
     if zen
         disableZenMode()
 }
@@ -128,7 +137,7 @@ toggleZenMode(hMargin := marginH, vMargin := marginV) {
     newY := mT + Round(monH * vMargin)
     WinMove(newX, newY, newW, newH, hwnd)
 
-    createBackdropLayers()
+    createBackdropLayers()           ; ← порядок слоёв исправлен
 
     WinSetAlwaysOnTop(1, hwnd)
     WinActivate(hwnd)
@@ -137,7 +146,6 @@ toggleZenMode(hMargin := marginH, vMargin := marginV) {
 
 disableZenMode() {
     global zen, savedWin, guiBlur, guiImgList
-
     if !zen || !savedWin.Count
         return
 
@@ -147,38 +155,38 @@ disableZenMode() {
             if (savedWin["max"] = 1)
                 WinMaximize(hwnd)
             else
-                WinMove(savedWin["x"],savedWin["y"],savedWin["w"],savedWin["h"], hwnd)
+                WinMove(savedWin["x"], savedWin["y"], savedWin["w"], savedWin["h"], hwnd)
             WinSetAlwaysOnTop(0, hwnd)
         }
     }
 
     if IsObject(guiBlur)
         guiBlur.Destroy(), guiBlur := ""
-    for ref in guiImgList
-        if IsObject(ref)
-            ref.Destroy()
+    for gui in guiImgList
+        if IsObject(gui)
+            gui.Destroy()
     guiImgList := []
 
     zen := false
 }
 
 ; =============================================================
-;                  ШТОРКА (по мониторам)
+;                  Ш Т О Р К А  (per‑monitor)
 ; =============================================================
 createBackdropLayers() {
     global enableImageBackground, imageBackgroundPath
 
-    ; Слой цвета+blur на всю виртуальную поверхность
-    vx := SysGet(76), vy := SysGet(77), vw := SysGet(78), vh := SysGet(79)
-    createBlurOverlay(vx, vy, vw, vh)
-
-    ; Картинка-задник на каждый монитор
+    ; 1) Картинка‑задник на каждом мониторе (нижний слой)
     if enableImageBackground && FileExist(imageBackgroundPath) {
         loop MonitorGetCount() {
             MonitorGetWorkArea(A_Index,&l,&t,&r,&b)
             createImageOverlay(l, t, r - l, b - t)
         }
     }
+
+    ; 2) Цвет + (опц.) blur — единый слой поверх
+    vx := SysGet(76), vy := SysGet(77), vw := SysGet(78), vh := SysGet(79)
+    createBlurOverlay(vx, vy, vw, vh)
 }
 
 ; ---------- слой цвета + (опц.) blur ----------
@@ -196,12 +204,10 @@ createBlurOverlay(x,y,w,h) {
     guiBlur.Show(Format("x{} y{} w{} h{} NoActivate", x, y, w, h))
 
     hwnd := guiBlur.Hwnd
-    ; прозрачность
     ex := DllCall("GetWindowLong", "Ptr", hwnd, "Int", -20, "Ptr") | 0x80000
     DllCall("SetWindowLong", "Ptr", hwnd, "Int", -20, "Ptr", ex)
     DllCall("SetLayeredWindowAttributes", "Ptr", hwnd, "UInt", 0, "UChar", bgAlpha, "UInt", 0x02)
 
-    ; blur (если доступен API)
     if (bgBlurStrength > 0) {
         pSetWCA := DllCall("GetProcAddress", "Ptr", DllCall("GetModuleHandle", "Str", "user32", "Ptr"), "AStr", "SetWindowCompositionAttribute", "Ptr")
         if pSetWCA {
@@ -209,29 +215,73 @@ createBlurOverlay(x,y,w,h) {
                 acc := Buffer(16,0)
                 NumPut("UInt",4,acc,0), NumPut("UInt",bgBlurStrength,acc,4)
                 alpha := 255 - bgAlpha, rgb := "0x" SubStr(bgColor,5,2) SubStr(bgColor,3,2) SubStr(bgColor,1,2)
-                NumPut("UInt", (alpha<<24)|(Integer(rgb)&0xFFFFFF), acc, 8)
+                NumPut("UInt",(alpha<<24)|(Integer(rgb)&0xFFFFFF), acc, 8)
                 wca := Buffer(A_PtrSize=8?24:16,0)
                 NumPut("UInt",19,wca,0), NumPut("Ptr",acc.Ptr,wca,A_PtrSize=8?8:4), NumPut("UPtr",acc.Size,wca,A_PtrSize=8?16:8)
-                DllCall(pSetWCA,"Ptr",hwnd,"Ptr",wca.Ptr)
+                DllCall(pSetWCA, "Ptr", hwnd, "Ptr", wca.Ptr)
             }
         }
     }
 }
 
-; ---------- картинка на монитор ----------
-createImageOverlay(x,y,w,h) {
+; ---------- картинка (cover‑алгоритм) ----------
+createImageOverlay(x,y,wMon,hMon) {
     global guiImgList, imageBackgroundPath, bgAlpha, overlayTopmost
 
     flags := "-Caption +ToolWindow +LastFound" . (overlayTopmost ? " +AlwaysOnTop" : "")
-    imgGui := Gui(flags)
-    imgGui.AddPicture(Format("x0 y0 h{} +Center", h), imageBackgroundPath)
-    imgGui.Show(Format("x{} y{} w{} h{} NoActivate", x, y, w, h))
+    gui := Gui(flags)
 
-    DllCall("SetLayeredWindowAttributes", "Ptr", imgGui.Hwnd, "UInt", 0, "UChar", bgAlpha, "UInt", 0x02)
-    guiImgList.Push(imgGui)
+    ; Получаем размеры JPG через GDI+
+    if !ImageSize(path:=imageBackgroundPath, &imgW, &imgH) {
+        gui.Destroy()
+        return
+    }
+
+    monRatio := wMon / hMon
+    imgRatio := imgW / imgH
+
+    if (monRatio >= imgRatio) {
+        ; масштабируем по ширине экрана
+        newW := wMon
+        scale := imgW / newW
+        newH := Floor(imgH / scale)
+        offsetY := (hMon - newH)//2
+        offsetX := 0
+    } else {
+        ; масштабируем по высоте экрана
+        newH := hMon
+        scale := imgH / newH
+        newW := Floor(imgW / scale)
+        offsetX := (wMon - newW)//2
+        offsetY := 0
+    }
+
+    gui.AddPicture(Format("x{} y{} w{} h{} +Center", offsetX, offsetY, newW, newH), imageBackgroundPath)
+    gui.Show(Format("x{} y{} w{} h{} NoActivate", x, y, wMon, hMon))
+
+    DllCall("SetLayeredWindowAttributes", "Ptr", gui.Hwnd, "UInt", 0, "UChar", bgAlpha, "UInt", 0x02)
+    guiImgList.Push(gui)
 }
 
-; ---------- монитор по координате ----------
+; --- получить размеры изображения (GDI+) ---
+ImageSize(path, &w, &h) {
+    static token := 0
+    if (!token) {
+        si := Buffer(16,0)
+        DllCall("gdiplus\\GdiplusStartup","PtrP",&token,"Ptr",si,"Ptr",0)
+    }
+    pBitmap := 0
+    if (DllCall("gdiplus\\GdipLoadImageFromFile","WStr",path,"PtrP",&pBitmap)=0 && pBitmap) {
+        VarSetCapacity(w,8), VarSetCapacity(h,8)
+        DllCall("gdiplus\\GdipGetImageWidth","Ptr",pBitmap,"UIntP",&w)
+        DllCall("gdiplus\\GdipGetImageHeight","Ptr",pBitmap,"UIntP",&h)
+        DllCall("gdiplus\\GdipDisposeImage","Ptr",pBitmap)
+        return true
+    }
+    return false
+}
+
+; ---------- монитор по точке ----------
 GetMonitorIndex(px,py) {
     Loop MonitorGetCount() {
         MonitorGetWorkArea(A_Index,&l,&t,&r,&b)
