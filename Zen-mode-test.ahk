@@ -1,5 +1,4 @@
 ﻿#Requires AutoHotkey v2.0
-#Warn, Off  ; Отключаем предупреждения
 #SingleInstance Force
 
 ; ---------- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ----------
@@ -19,7 +18,7 @@ global enableEscExit := true
 
 global enableImageBackground := true
 
-global imageBackgroundPath := "E:\pic.jpg"
+global imageBackgroundPath := "E:\\pic.jpg"
 
 global overlayTopmost := true
 
@@ -41,10 +40,10 @@ global altPressed := false
 
 global wasZenDuringAltTab := false
 
-
-; =============================================================
-;  Zen-Mode v8.6 — обновлённая версия с исправлением фоновой картинки и синтаксисом ActionHotkey v2
-; =============================================================
+; ---------------------- ИНИЦИАЛИЗАЦИЯ GDI+ ----------------------
+if !DllCall("GetModuleHandle", "Str", "gdiplus.dll")
+    GdipStartup(0)
+OnExit("Shutdown")
 
 ; =============================================================
 ;                 РЕГИСТРАЦИЯ HOTKEY'ев
@@ -77,6 +76,7 @@ registerHotkeys()
         toggleZenMode()
     }
 }
+
 ~Tab::{
     global zen, altPressed
     if zen && altPressed {
@@ -85,7 +85,7 @@ registerHotkeys()
     }
 }
 
-escExit(*){
+escExit(*) {
     global zen
     if zen
         disableZenMode()
@@ -108,11 +108,10 @@ toggleZenMode(hMargin := marginH, vMargin := marginV) {
     WinGetPos(&ox,&oy,&ow,&oh, hwnd)
     wasMax := WinGetMinMax(hwnd)
     savedWin := Map("id",hwnd,"x",ox,"y",oy,"w",ow,"h",oh,"max",wasMax)
-    if (wasMax = 1)
-{
-    WinRestore(hwnd)
-    Sleep 50
-}
+    if (wasMax = 1) {
+        WinRestore(hwnd)
+        Sleep 50
+    }
     centerX := ox + ow//2, centerY := oy + oh//2
     mon := GetMonitorIndex(centerX, centerY)
     MonitorGetWorkArea(mon,&mL,&mT,&mR,&mB)
@@ -166,6 +165,7 @@ createBackdropLayers() {
     }
 }
 
+; ---------- слой цвета + клик для выхода ----------
 createBlurOverlay(x,y,w,h) {
     global guiBlur, bgColor, bgAlpha, bgBlurStrength, overlayTopmost
     if IsObject(guiBlur)
@@ -173,8 +173,6 @@ createBlurOverlay(x,y,w,h) {
     flags := "-Caption +ToolWindow +LastFound" . (overlayTopmost ? " +AlwaysOnTop" : "")
     guiBlur := Gui(flags)
     guiBlur.BackColor := bgColor
-    ; Показываем окно без дополнительных контролов
-    ; Показываем окно без дополнительных контролов и регистрируем клик по невидимому контролу
     controlID := "ClickOverlay"
     ctrl := guiBlur.AddText(Format("x0 y0 w{} h{}", w, h), controlID)
     ctrl.OnEvent("Click", Func("disableZenMode"))
@@ -198,6 +196,7 @@ createBlurOverlay(x,y,w,h) {
     }
 }
 
+; ---------- картинка на монитор ----------
 createImageOverlay(x,y,w,h) {
     global guiImgList, imageBackgroundPath, bgAlpha, overlayTopmost
     if !FileExist(imageBackgroundPath)
@@ -210,8 +209,9 @@ createImageOverlay(x,y,w,h) {
     guiImgList.Push(imgGui)
 }
 
+; ---------- монитор по координате ----------
 GetMonitorIndex(px,py) {
-    Loop MonitorGetCount() {
+    loop MonitorGetCount() {
         MonitorGetWorkArea(A_Index,&l,&t,&r,&b)
         if px>=l && px<r && py>=t && py<b
             return A_Index
@@ -219,9 +219,9 @@ GetMonitorIndex(px,py) {
     return MonitorGetPrimary()
 }
 
+; ---------- завершение GDI+ ----------
 Shutdown(*) {
-    global GdipShutdown, IsFunc
     if IsFunc("GdipShutdown")
         GdipShutdown()
-    ExitApp
+    ExitApp()
 }
