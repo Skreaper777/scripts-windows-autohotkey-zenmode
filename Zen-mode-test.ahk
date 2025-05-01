@@ -29,11 +29,11 @@ global imageBackgroundPath := "E:\\pic.jpg"
 
 ; Верхний цветной слой
 global bgColor        := "000000"   ; RGB без #
-global bgAlpha        := 8        ; 0 = непрозр., 255 = полно прозрачн.
-global bgBlurStrength := 8          ; 0 = blur off
+global bgAlpha        := 240        ; 0 = непрозр., 255 = полно прозрачн.
+global bgBlurStrength := 1          ; 0 = blur off
 
 ; Делать ли шторку AlwaysOnTop?  false = ошибки будут поверх
-global overlayTopmost := false
+global overlayTopmost := true
 
 ; ---------- ПРОЧЕЕ ----------
 global enableEscExit := true
