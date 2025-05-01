@@ -1,51 +1,62 @@
 ﻿#Requires AutoHotkey v2.0
 #SingleInstance Force
 
-; =========================================
-;  Zen-Mode v7.0 — Alt‑Tab «handoff» + optional image overlay
-; =========================================
-;  • Первая группа хоткеев (hotkeyList) — классический режим.
-;  • Вторая группа (hotkeyList_2) — альтернативный режим с иными отступами.
-;  • Alt + Tab заменяет окно в Zen‑режиме, одиночный Alt больше не влияет.
-;  • Esc (если включено) всегда выводит из Zen‑режима.
-;  • Фоновая «шторка» может быть либо «DWM‑blur» чёрного цвета, либо картинка.
+; =============================================================
+;  Zen‑Mode v8.0  —  двойная шторка + гибкие настройки + баг‑фиксы
+; =============================================================
+;  • Шторка теперь состоит из *двух* слоёв, если enableImageBackground = true:
+;       1) картинка‑задник (самый нижний слой);
+;       2) полупрозрачный цвет + DWM‑blur (между картинкой и окном Zen).
+;    При enableImageBackground = false создаётся только слой №2.
+;  • Клик по шторке **всегда** выводит из Zen‑режима.
+;  • Alt‑Tab снова «передаёт» окно: отключаем Zen при Tab, восстанавливаем при Alt Up.
+;  • Переменные цвета, прозрачности и силы размытия добавлены.
+;  • overlayAlpha удалён как неиспользуемый.
+; =============================================================
 
-; ---------- ПАРАМЕТРЫ ----------
-;   Базовые отступы (доли от ширины/высоты монитора)
-global marginH       := 0.30
-global marginV       := 0.05
-;   Отступы для альтернативного режима
+; ---------- ПАРАМЕТРЫ ОКНА ----------
+global marginH       := 0.30  ; левые/правые отступы (доля)
+global marginV       := 0.05  ; верх/низ
+
+; Альтернативный режим (вторая группа хоткеев)
 global marginH_2     := 0.35
 global marginV_2     := 0.15
 
-;   Прозрачность (alpha) для всех видов шторки (0 = прозр., 255 = непрозр.)
-global overlayAlpha  := 140
-
-;   ===========   Выбор фона шторки  ===========
-;   true  — использовать картинку   (imageBackgroundPath)
-;   false — классический DWM‑blur чёрного цвета
+; ---------- ШТОРКА / BACKDROP ----------
+; true  — добавляем картинку под цвет + blur
+; false — только цвет + blur
 global enableImageBackground := true
-global imageBackgroundPath   := "E:\\pic.png"
 
-;   ===========   Управление ESC   ===========
-;   true  — Esc выводит из Zen‑режима и НЕ передаётся активному приложению
-;   false — Esc никак не связан с Zen‑режимом
-global enableEscExit      := true
+; Путь к картинке (используется, только если enableImageBackground = true)
+global imageBackgroundPath := "E:\\pic.png"
 
-;   ===========   Группы хоткеев   ===========
-global hotkeyList   := ["^!z", "^F11", "F8", "F1"]
-global hotkeyList_2 := ["F2"]               ; пустой массив = вторая группа не нужна
+; Настройки верхнего (цветного) слоя шторки
+global bgColor        := "000000"  ; шестнадцатеричный RGB без «#»
+global bgAlpha        := 180       ; 0 = непрозрачный, 255 = полностью прозр.
+global bgBlurStrength := 8         ; 0 = blur off, >0 — сила размытия (0‑19)
 
-; ---------- СЛУЖЕБНЫЕ ----------
-global zen                := false          ; «в zen или нет»
-global savedWin           := Map()          ; координаты/состояние окна до Zen
-global overlayGui         := ""             ; ссылка на шторку‑GUI
-global altPressed         := false          ; держим ли Alt
-global wasZenDuringAltTab := false          ; выходили из Zen по Alt+Tab
+; ---------- ПРОЧЕЕ ----------
+; true  — Esc выводит из Zen (и не передаётся приложению)
+; false — Esc не трогаем
+global enableEscExit := true
 
-; ---------- РЕГИСТРАЦИЯ ГОТОВЫХ КЛАВИШ ----------
+; Основная / альтернативная группа хоткеев
+global hotkeyList   := ["^!z", "F1"]
+global hotkeyList_2 := ["F2"]          ; пустой массив = режим не нужен
+
+; ---------- СЛУЖЕБНЫЕ ПЕРЕМЕННЫЕ ----------
+global zen                 := false
+global savedWin            := Map()
+global guiBlur             := ""       ; GUI‑слой цвет+blur
+global guiImg              := ""       ; GUI‑слой картинка
+global altPressed          := false
+global wasZenDuringAltTab  := false
+
+; =============================================================
+;                  Р Е Г И С Т Р А Ц И Я  H O T K E Y S
+; =============================================================
 registerHotkeys() {
-    ToggleZen1 := (*) => toggleZenMode(marginH,  marginV)
+    ToggleZen1 := (*) => toggleZenMode(marginH, marginV)
     for hk in hotkeyList
         Hotkey(hk, ToggleZen1)
 
@@ -62,24 +73,28 @@ registerHotkeys() {
 }
 registerHotkeys()
 
-; ---------- ALT‑TAB ----------
-~Alt::  altPressed := true         ; просто зажали Alt — ничего не делаем
+; =============================================================
+;                        ALT  +  TAB
+; =============================================================
+~Alt::  altPressed := true
+
 ~Alt Up:: {
     global altPressed, wasZenDuringAltTab
     altPressed := false
     if wasZenDuringAltTab {
         wasZenDuringAltTab := false
-        Sleep 75
-        toggleZenMode()            ; используем активное окно
+        ; ждём, пока активируется выбранное окно
+        Sleep 120
+        toggleZenMode() ; запускаем Zen для нового активного окна
     }
 }
 
-~Tab Up:: {                         ; Tab отжат при зажатом Alt
-    global zen, altPressed, wasZenDuringAltTab
-    if zen && altPressed {
-        wasZenDuringAltTab := true
+~Tab:: {
+    global zen, altPressed
+    ; Срабатывает при нажатии Tab (а не при отпускании) — быстрее реакция
+    if zen && altPressed
+        wasZenDuringAltTab := true,
         disableZenMode()
-    }
 }
 
 escExit(*) {
@@ -88,36 +103,36 @@ escExit(*) {
         disableZenMode()
 }
 
-; ===================================
-;           В К Л  Z E N
-; ===================================
+; =============================================================
+;                   В К Л Ю Ч И Т Ь / О Т К Л Ю Ч И Т Ь
+; =============================================================
 toggleZenMode(hMargin := marginH, vMargin := marginV) {
-    global zen, savedWin, overlayGui
-    if zen {                         ; Zen уже активен → выключаем
+    global zen, savedWin
+
+    if zen {
         disableZenMode()
         return
     }
 
     hwnd := WinGetID("A")
-    if !hwnd {
+    if !hwnd || !WinExist(hwnd) {
         TrayTip "Zen Mode", "❌ Активное окно не найдено", 1
         return
     }
 
     ; --- сохраняем исходное состояние ---
     WinGetPos(&ox,&oy,&ow,&oh, hwnd)
-    wasMax := WinGetMinMax(hwnd)            ; 1 = maximized
-    savedWin := Map("id",hwnd, "x",ox,"y",oy,"w",ow,"h",oh,"max",wasMax)
+    wasMax := WinGetMinMax(hwnd)
+    savedWin := Map("id",hwnd, "x",ox, "y",oy, "w",ow, "h",oh, "max",wasMax)
 
     if (wasMax = 1)
-        WinRestore(hwnd)
-    Sleep 50
+        WinRestore(hwnd), Sleep 50
 
     ; --- центрируем окно ---
-    centerX := ox + ow//2,  centerY := oy + oh//2
+    centerX := ox + ow//2, centerY := oy + oh//2
     mon := GetMonitorIndex(centerX, centerY)
     MonitorGetWorkArea(mon,&mL,&mT,&mR,&mB)
-    monW := mR-mL,  monH := mB-mT
+    monW := mR-mL, monH := mB-mT
 
     newW := Round(monW*(1-hMargin*2))
     newH := Round(monH*(1-vMargin*2))
@@ -125,19 +140,18 @@ toggleZenMode(hMargin := marginH, vMargin := marginV) {
     newY := mT + Round(monH*vMargin)
     WinMove(newX,newY,newW,newH, hwnd)
 
-    ; --- полная шторка ---
-    createOverlay(SysGet(76), SysGet(77), SysGet(78), SysGet(79))
+    ; --- создаём слои шторки ---
+    createBackdropLayers(SysGet(76), SysGet(77), SysGet(78), SysGet(79))
 
-    WinSetAlwaysOnTop(1, hwnd)              ; окно поверх шторки
+    WinSetAlwaysOnTop(1, hwnd)
     WinActivate(hwnd)
     zen := true
 }
 
-; ===================================
-;           В Ы К Л  Z E N
-; ===================================
+
 disableZenMode() {
-    global zen, savedWin, overlayGui
+    global zen, savedWin, guiBlur, guiImg
+
     if !zen || !savedWin.Count
         return
 
@@ -147,73 +161,77 @@ disableZenMode() {
             if (savedWin["max"] = 1)
                 WinMaximize(hwnd)
             else
-                WinMove(savedWin["x"], savedWin["y"]
-                       ,savedWin["w"], savedWin["h"], hwnd)
+                WinMove(savedWin["x"], savedWin["y"], savedWin["w"], savedWin["h"], hwnd)
             WinSetAlwaysOnTop(0, hwnd)
         }
     }
-    if IsObject(overlayGui)
-        overlayGui.Destroy(), overlayGui := ""
+    if IsObject(guiBlur)
+        guiBlur.Destroy(), guiBlur := ""
+    if IsObject(guiImg)
+        guiImg.Destroy(), guiImg := ""
+
     zen := false
 }
 
-; ===================================
-;         Ш Т О Р К А  (выбор)
-; ===================================
-createOverlay(x,y,w,h) {
-    if enableImageBackground && FileExist(imageBackgroundPath)
-        createImageOverlay(x,y,w,h)
-    else
+; =============================================================
+;                     Ш Т О Р К А  (2 слоя)
+; =============================================================
+createBackdropLayers(x,y,w,h) {
+    global enableImageBackground
+
+    if enableImageBackground && FileExist(imageBackgroundPath) {
+        createImageOverlay(x,y,w,h)   ; самый нижний слой
+        createBlurOverlay(x,y,w,h)    ; второй слой — цвет + blur
+    } else {
         createBlurOverlay(x,y,w,h)
+    }
 }
 
-; --- DWM‑blur чёрного цвета ---
+; ---------- слой №2: цвет + (опц.) blur ----------
 createBlurOverlay(x,y,w,h) {
-    global overlayGui, overlayAlpha
+    global guiBlur, bgColor, bgAlpha, bgBlurStrength
+    if IsObject(guiBlur)
+        guiBlur.Destroy()
 
-    if IsObject(overlayGui)
-        overlayGui.Destroy()
+    guiBlur := Gui("-Caption +ToolWindow +AlwaysOnTop +LastFound")
+    guiBlur.BackColor := bgColor
+    guiBlur.OnEvent("Click", (*) => disableZenMode())
+    guiBlur.Show("x" x " y" y " w" w " h" h " NoActivate")
+    hwnd := guiBlur.Hwnd
 
-    overlayGui := Gui("-Caption +ToolWindow +AlwaysOnTop +LastFound")
-    overlayGui.BackColor := "000000"
-    overlayGui.Show("x" x " y" y " w" w " h" h " NoActivate")
-    hwnd := overlayGui.Hwnd
-
-    ; ACCENT_POLICY для blur‑behind
+    ; ACCENT_POLICY
     acc := Buffer(16, 0)
-    NumPut("UInt", 4, acc, 0)               ; ACCENT_ENABLE_BLURBEHIND
+    NumPut("UInt", 4, acc, 0)                 ; ACCENT_ENABLE_BLURBEHIND (4)
+    NumPut("UInt", bgBlurStrength, acc, 4)     ; AccentFlags – сила размытия
+
+    ; Цвет + альфа → DWORD ABGR
+    alpha := 255 - bgAlpha                      ; инвертируем: 0 = непрозр.
+    rgb := "0x" SubStr(bgColor,5,2) + SubStr(bgColor,3,2) + SubStr(bgColor,1,2)
+    color := (alpha<<24) | (Integer(rgb) & 0xFFFFFF)
+    NumPut("UInt", color, acc, 8)
 
     wca := Buffer(A_PtrSize=8?24:16, 0)
-    NumPut("UInt", 19,        wca, 0)       ; WCA_ACCENT_POLICY
-    NumPut("Ptr",  acc.Ptr,   wca, A_PtrSize=8?8:4)
-    NumPut("UPtr", acc.Size,  wca, A_PtrSize=8?16:8)
-
-    DllCall("user32\\SetWindowCompositionAttribute"
-           , "Ptr", hwnd, "Ptr", wca.Ptr)
-
-    DllCall("SetLayeredWindowAttributes"
-           , "Ptr", hwnd, "UInt", 0
-           , "UChar", overlayAlpha, "UInt", 0x02) ; LWA_ALPHA
+    NumPut("UInt", 19, wca, 0)                ; WCA_ACCENT_POLICY
+    NumPut("Ptr",  acc.Ptr, wca, A_PtrSize=8?8:4)
+    NumPut("UPtr", acc.Size, wca, A_PtrSize=8?16:8)
+    DllCall("user32\\SetWindowCompositionAttribute", "Ptr", hwnd, "Ptr", wca.Ptr)
 }
 
-; --- Пиктограмма поверх всех окон ---
+; ---------- слой №1: картинка ----------
 createImageOverlay(x,y,w,h) {
-    global overlayGui, overlayAlpha, imageBackgroundPath
+    global guiImg, imageBackgroundPath, bgAlpha
+    if IsObject(guiImg)
+        guiImg.Destroy()
 
-    if IsObject(overlayGui)
-        overlayGui.Destroy()
-
-    overlayGui := Gui("-Caption +ToolWindow +AlwaysOnTop +LastFound")
-    overlayGui.BackColor := "000000"
-    overlayGui.AddPicture("x0 y0 w" w " h" h " +Center", imageBackgroundPath)
-    overlayGui.Show("x" x " y" y " w" w " h" h " NoActivate")
-    hwnd := overlayGui.Hwnd
-    DllCall("SetLayeredWindowAttributes"
-           , "Ptr", hwnd, "UInt", 0
-           , "UChar", overlayAlpha, "UInt", 0x02)
+    guiImg := Gui("-Caption +ToolWindow +AlwaysOnTop +LastFound")
+    guiImg.AddPicture("x0 y0 w" w " h" h " +Center", imageBackgroundPath)
+    guiImg.Show("x" x " y" y " w" w " h" h " NoActivate")
+    hwnd := guiImg.Hwnd
+    DllCall("SetLayeredWindowAttributes", "Ptr", hwnd, "UInt", 0, "UChar", bgAlpha, "UInt", 0x02)
+    ; Круговой ESC – клика нет (закроет верхний слой)
 }
 
-; ---------- монитор по точке ----------
+; ---------- монитор по координате ----------
 GetMonitorIndex(px,py) {
     max := MonitorGetCount()
     Loop max {
