@@ -2,16 +2,13 @@
 #SingleInstance Force
 
 ; =============================================================
-;  Zen-Mode v8.3 — «чёрный экран» пофиксен + fallback, ошибки видны
+;  Zen-Mode v8.4 — per-monitor JPG фон, AlwaysOnTop по умолчанию
 ; =============================================================
-;  • SetWindowCompositionAttribute вызывает ошибку на старых Windows —
-;    теперь проверяем наличие функции и оборачиваем в Try/Catch.
-;    Если API недоступно или bgBlurStrength = 0  → просто полупрозрачный
-;    цвет без blur (через SetLayeredWindowAttributes).
-;  • overlayTopmost = **false** по умолчанию, чтобы системные ошибки
-;    и всплывающие окна были поверх шторки.
-;  • Если картинка не найдена  → шторка не рушится, просто не создаём
-;    слой с изображением.
+;  • overlayTopmost снова true — шторка поверх всех окон.
+;  • imageBackgroundPath → "E:\\pic.jpg" (JPG).
+;  • Картинка-задник растягивается *отдельно* на каждый монитор:
+;    берётся *высота* монитора, пропорции сохраняются (ширина автоподстройка).
+;  • guiImg заменён на массив guiImgList, чтобы хранить несколько GUI.
 ; =============================================================
 
 ; ---------- ПАРАМЕТРЫ ОКНА ----------
@@ -24,15 +21,15 @@ global marginV_2     := 0.15
 ; ---------- ШТОРКА / BACKDROP ----------
 global enableImageBackground := true
 
-; Путь к картинке
-global imageBackgroundPath := "E:\\pic.jpg"
+; Путь к картинке (JPG)
+global imageBackgroundPath := "E:\\pic4.jpg"
 
 ; Верхний цветной слой
-global bgColor        := "000000"   ; RGB без #
-global bgAlpha        := 240        ; 0 = непрозр., 255 = полно прозрачн.
-global bgBlurStrength := 1          ; 0 = blur off
+global bgColor        := "000000"
+global bgAlpha        := 180        ; 0-255  (0 = полностью непрозрачный, 255 = полностью прозрачный)
+global bgBlurStrength := 8          ; 0-19   (0 = blur off; ~19 = максимум)
 
-; Делать ли шторку AlwaysOnTop?  false = ошибки будут поверх
+; Делать ли слои шторки AlwaysOnTop?
 global overlayTopmost := true
 
 ; ---------- ПРОЧЕЕ ----------
@@ -43,11 +40,14 @@ global hotkeyList_2 := ["F2"]
 
 ; ---------- СЛУЖЕБНЫЕ ----------
 global zen := false, savedWin := Map()
-global guiBlur := "", guiImg := ""
+; массивы для многослойных GUI
+global guiBlur := ""
+global guiImgList := []
+
 global altPressed := false, wasZenDuringAltTab := false
 
 ; =============================================================
-;                 Р Е Г И С Т Р А Ц И Я   H O T K E Y S
+;    Р Е Г И С Т Р А Ц И Я   H O T K E Y S
 ; =============================================================
 registerHotkeys() {
     Toggle1 := (*) => toggleZenMode(marginH,  marginV )
@@ -131,7 +131,7 @@ toggleZenMode(hMargin := marginH, vMargin := marginV) {
     newY := mT + Round(monH * vMargin)
     WinMove(newX, newY, newW, newH, hwnd)
 
-    createBackdropLayers(SysGet(76),SysGet(77),SysGet(78),SysGet(79))
+    createBackdropLayers()
 
     WinSetAlwaysOnTop(1, hwnd)
     WinActivate(hwnd)
@@ -139,7 +139,7 @@ toggleZenMode(hMargin := marginH, vMargin := marginV) {
 }
 
 disableZenMode() {
-    global zen, savedWin, guiBlur, guiImg
+    global zen, savedWin, guiBlur, guiImgList
     if !zen || !savedWin.Count
         return
 
@@ -156,24 +156,31 @@ disableZenMode() {
 
     if IsObject(guiBlur)
         guiBlur.Destroy(), guiBlur := ""
-    if IsObject(guiImg)
-        guiImg.Destroy(), guiImg := ""
+    for ref in guiImgList
+        if IsObject(ref)
+            ref.Destroy()
+    guiImgList := []
 
     zen := false
 }
 
 ; =============================================================
-;                     Ш Т О Р К А  (2 слоя)
+;                     Ш Т О Р К А (per-monitor)
 ; =============================================================
-createBackdropLayers(x,y,w,h) {
+createBackdropLayers() {
     global enableImageBackground
 
-    if enableImageBackground && FileExist(imageBackgroundPath) {
-        createImageOverlay(x,y,w,h)   ; нижний слой (картинка)
-        createBlurOverlay(x,y,w,h)    ; верхний слой (цвет/blur)
-    } else {
-        createBlurOverlay(x,y,w,h)
-    }
+    ; 1) Цвет + (опц.) blur по всей виртуальной области
+    SysGet 76,&vx, 77,&vy, 78,&vw, 79,&vh   ; виртуальные координаты
+    createBlurOverlay(vx,vy,vw,vh)
+
+    ; 2) Картинка на каждом мониторе
+    if enableImageBackground && FileExist(imageBackgroundPath)
+        loop MonitorGetCount()
+        {
+            MonitorGetWorkArea(A_Index,&l,&t,&r,&b)
+            createImageOverlay(l,t,r-l,b-t)
+        }
 }
 
 ; ---------- слой №2: цвет + (опц.) blur ----------
@@ -194,12 +201,11 @@ createBlurOverlay(x,y,w,h) {
 
     hwnd := guiBlur.Hwnd
 
-    ; === Прозрачность всегда ===
-    DllCall("SetWindowLong", "Ptr", hwnd, "Int", -20 ; GWL_EXSTYLE
-           , "Ptr", DllCall("GetWindowLong", "Ptr", hwnd, "Int", -20, "Ptr") | 0x80000) ; WS_EX_LAYERED
+    ; === прозрачность ===
+    DllCall("SetWindowLong", "Ptr", hwnd, "Int", -20, "Ptr", DllCall("GetWindowLong", "Ptr", hwnd, "Int", -20, "Ptr") | 0x80000)
     DllCall("SetLayeredWindowAttributes", "Ptr", hwnd, "UInt", 0, "UChar", bgAlpha, "UInt", 0x02)
 
-    ; === Blur, если доступен API и blurStrength > 0 ===
+    ; === blur ===
     if (bgBlurStrength > 0) {
         pSetWCA := DllCall("GetProcAddress", "Ptr", DllCall("GetModuleHandle", "Str", "user32", "Ptr")
                                         , "AStr", "SetWindowCompositionAttribute", "Ptr")
@@ -207,7 +213,7 @@ createBlurOverlay(x,y,w,h) {
             try {
                 acc := Buffer(16,0)
                 NumPut("UInt", 4, acc, 0)              ; ACCENT_ENABLE_BLURBEHIND
-                NumPut("UInt", bgBlurStrength, acc, 4)
+                NumPut("UInt", bgBlurStrength, acc, 4) ; AccentFlags
 
                 alpha := 255 - bgAlpha
                 rgb := "0x" SubStr(bgColor,5,2) SubStr(bgColor,3,2) SubStr(bgColor,1,2)
@@ -216,33 +222,31 @@ createBlurOverlay(x,y,w,h) {
 
                 wca := Buffer(A_PtrSize=8?24:16,0)
                 NumPut("UInt", 19, wca, 0)
-                NumPut("Ptr", acc.Ptr, wca, A_PtrSize=8?8:4)
+                NumPut("Ptr",  acc.Ptr, wca, A_PtrSize=8?8:4)
                 NumPut("UPtr", acc.Size, wca, A_PtrSize=8?16:8)
 
                 DllCall(pSetWCA, "Ptr", hwnd, "Ptr", wca.Ptr)
             } catch {
-                ; тихо игнорируем, оставляя прозрачный цвет без blur
+                ; если API не доступен — остаёмся с прозрачным цветом
             }
         }
     }
 }
 
-; ---------- слой №1: картинка ----------
+; ---------- слой №1: картинка (на каждый монитор) ----------
 createImageOverlay(x,y,w,h) {
-    global guiImg, imageBackgroundPath, bgAlpha, overlayTopmost
-
-    if !FileExist(imageBackgroundPath)
-        return
-
-    if IsObject(guiImg)
-        guiImg.Destroy()
+    global guiImgList, imageBackgroundPath, bgAlpha, overlayTopmost
 
     flags := "-Caption +ToolWindow +LastFound" . (overlayTopmost? " +AlwaysOnTop" : "")
-    guiImg := Gui(flags)
-    guiImg.AddPicture(Format("x0 y0 w{} h{} +Center", w, h), imageBackgroundPath)
-    guiImg.Show(Format("x{} y{} w{} h{} NoActivate", x, y, w, h))
+    gui := Gui(flags)
+    ; тянем по высоте, сохраняя пропорции
+    gui.AddPicture(Format("x0 y0 h{} +Center", h), imageBackgroundPath)
+    gui.Show(Format("x{} y{} w{} h{} NoActivate", x, y, w, h))
 
-    DllCall("SetLayeredWindowAttributes", "Ptr", guiImg.Hwnd, "UInt", 0, "UChar", bgAlpha, "UInt", 0x02)
+    hwnd := gui.Hwnd
+    DllCall("SetLayeredWindowAttributes", "Ptr", hwnd, "UInt", 0, "UChar", bgAlpha, "UInt", 0x02)
+
+    guiImgList.Push(gui)   ; сохраняем для последующего Destroy
 }
 
 ; ---------- монитор по координате ----------
