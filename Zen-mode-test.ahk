@@ -20,7 +20,7 @@ global enableImageBackground := true
 
 global imageBackgroundPath := "E:\pic.jpg"
 
-global overlayTopmost := true
+global overlayTopmost := false
 
 global bgColor := "000000"
 
@@ -172,8 +172,10 @@ createBlurOverlay(x,y,w,h) {
     flags := "-Caption +ToolWindow +LastFound" . (overlayTopmost ? " +AlwaysOnTop" : "")
     guiBlur := Gui(flags)
     guiBlur.BackColor := bgColor
-    guiBlur.AddText(Format("x0 y0 w{} h{}", w, h), "").OnEvent("Click", Func("disableZenMode"))
+    ; Показываем окно без дополнительных контролов
     guiBlur.Show(Format("x{} y{} w{} h{} NoActivate", x, y, w, h))
+    ; Клик по окну отключает Zen Mode
+    guiBlur.OnEvent("Click", Func("disableZenMode"))
     hwnd := guiBlur.Hwnd
     ex := DllCall("GetWindowLong", "Ptr", hwnd, "Int", -20, "Ptr") | 0x80000
     DllCall("SetWindowLong", "Ptr", hwnd, "Int", -20, "Ptr", ex)
@@ -215,6 +217,8 @@ GetMonitorIndex(px,py) {
 }
 
 Shutdown(*) {
+    global GdipShutdown, IsFunc
     if IsFunc("GdipShutdown")
         GdipShutdown()
+    ExitApp
 }
