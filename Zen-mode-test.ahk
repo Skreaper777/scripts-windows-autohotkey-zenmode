@@ -17,13 +17,13 @@ global marginH_2     := 0.35
 global marginV_2     := 0.15
 
 ; ---------- ШТОРКА / BACKDROP ----------
-global enableImageBackground := true
+global enableImageBackground := false
 
 global imageBackgroundPath := "E:\\pic.jpg"
 
 global bgColor        := "000000"
-global bgAlpha        := 180     ; 0‑255 (0 непрозр.)
-global bgBlurStrength := 8       ; 0‑19 (0 blur off)
+global bgAlpha        := 235     ; 0‑255 (0 непрозр.)
+global bgBlurStrength := 0       ; 0‑19 (0 blur off)
 
 global overlayTopmost := true
 
@@ -251,4 +251,31 @@ createImageOverlay(x,y,wMon,hMon) {
     picGui.Show(Format("x{} y{} w{} h{} NoActivate", x, y, wMon, hMon))
 
     DllCall("SetLayeredWindowAttributes", "Ptr", picGui.Hwnd, "UInt", 0, "UChar", bgAlpha, "UInt", 0x02)
-    gui
+    guiImgList.Push(picGui)
+}
+
+; --- размеры изображения (без GDI+) ---
+ImageSize(path, &w, &h) {
+    w := h := 0
+    hBitmap := LoadPicture(path) ; HBITMAP (NULL on failure)
+    if (hBitmap) {
+        bm := Buffer(24, 0)
+        if (DllCall("GetObject", "Ptr", hBitmap, "Int", 24, "Ptr", bm.Ptr)) {
+            w := NumGet(bm, 4, "Int")
+            h := NumGet(bm, 8, "Int")
+        }
+        DllCall("DeleteObject", "Ptr", hBitmap)
+        return (w > 0 && h > 0)
+    }
+    return false
+}
+
+; ---------- монитор по точке ----------
+GetMonitorIndex(px,py) {
+    Loop MonitorGetCount() {
+        MonitorGetWorkArea(A_Index,&l,&t,&r,&b)
+        if (px>=l && px<r && py>=t && py<b)
+            return A_Index
+    }
+    return MonitorGetPrimary()
+}
