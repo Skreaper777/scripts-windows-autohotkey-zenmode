@@ -254,27 +254,28 @@ createImageOverlay(x,y,wMon,hMon) {
     guiImgList.Push(picGui)
 }
 
-; --- размеры JPG через GDI+ ---
+; --- размеры изображения (без GDI+) ---
 ImageSize(path, &w, &h) {
-    static token := 0
-    if (!token) {
-        si := Buffer(16,0) ; GdiplusStartupInput (Version=1)
-        NumPut("UInt",1,si,0)
-        if DllCall("gdiplus","Int",0)=0 ; force‑load
-            DllCall("gdiplus\GdiplusStartup","Ptr*",token,"Ptr",si,"Ptr",0)
-    }
-    pBitmap := 0
-    if (DllCall("gdiplus\GdipLoadImageFromFile","WStr",path,"Ptr*",pBitmap)=0 && pBitmap) {
-        DllCall("gdiplus\GdipGetImageWidth","Ptr",pBitmap,"UInt*",w)
-        DllCall("gdiplus\GdipGetImageHeight","Ptr",pBitmap,"UInt*",h)
-        DllCall("gdiplus\GdipDisposeImage","Ptr",pBitmap)
-        return true
+    ; Используем встроенную LoadPicture, которая возвращает HBITMAP и даёт размеры
+    w := h := 0
+    pic := LoadPicture(path, "", &w, &h)
+    if (pic) {
+        ; освобождаем ресурс
+        DllCall("DeleteObject", "Ptr", pic)
+        return (w>0 && h>0)
     }
     return false
 }
 
 ; ---------- монитор по точке ----------
 GetMonitorIndex(px,py) {
+    Loop MonitorGetCount() {
+        MonitorGetWorkArea(A_Index,&l,&t,&r,&b)
+        if (px>=l && px<r && py>=t && py<b)
+            return A_Index
+    }
+    return MonitorGetPrimary()
+}(px,py) {
     Loop MonitorGetCount() {
         MonitorGetWorkArea(A_Index,&l,&t,&r,&b)
         if (px>=l && px<r && py>=t && py<b)
