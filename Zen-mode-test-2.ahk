@@ -158,8 +158,10 @@ createBlurOverlay(x, y, w, h) {
     flags := "-Caption +ToolWindow +LastFound" . (overlayTopmost ? " +AlwaysOnTop" : "")
     guiBlur := Gui(flags)
     guiBlur.BackColor := bgColor
+    ; Добавляем невидимый контрол для обработки клика
+    ctrl := guiBlur.AddText(Format("x0 y0 w{} h{}", w, h), "ClickOverlay")
+    ctrl.OnEvent("Click", Func("disableZenMode"))
     guiBlur.Show(Format("x{} y{} w{} h{} NoActivate", x, y, w, h))
-    guiBlur.OnEvent("Click", Func("disableZenMode"))
     hwnd := guiBlur.Hwnd
     ex := DllCall("GetWindowLong", "Ptr", hwnd, "Int", -20, "Ptr") | 0x80000
     DllCall("SetWindowLong", "Ptr", hwnd, "Int", -20, "Ptr", ex)
