@@ -163,44 +163,28 @@ createBlurOverlay(x, y, w, h) {
     ctrl.OnEvent("Click", Func("disableZenMode"))
     guiBlur.Show(Format("x{} y{} w{} h{} NoActivate", x, y, w, h))
     hwnd := guiBlur.Hwnd
-    ex := DllCall("GetWindowLong", "Ptr", hwnd, "Int", -20, "Ptr") | 0x80000
+    ; прозрачность слоя
+    ex := DllCall("GetWindowLong", "Ptr", hwnd, "Int", -20) | 0x80000
     DllCall("SetWindowLong", "Ptr", hwnd, "Int", -20, "Ptr", ex)
     DllCall("SetLayeredWindowAttributes", "Ptr", hwnd, "UInt", 0, "UChar", bgAlpha, "UInt", 0x02)
+    ; blur
     if bgBlurStrength > 0 {
-        p := DllCall("GetProcAddress", "Ptr", DllCall("GetModuleHandle", "Str", "user32"), "AStr", "SetWindowCompositionAttribute", "Ptr")
+        p := DllCall("GetProcAddress", "Ptr", DllCall("GetModuleHandle", "Str", "user32"), "AStr", "SetWindowCompositionAttribute")
         if p {
             acc := Buffer(16)
-            NumPut(4, acc, 0, "UInt"), NumPut(bgBlurStrength, acc, 4, "UInt")
+            NumPut(4, acc, 0, "UInt")
+            NumPut(bgBlurStrength, acc, 4, "UInt")
             alpha := 255 - bgAlpha
-            rgb := "0x" SubStr(bgColor, 5, 2) SubStr(bgColor, 3, 2) SubStr(bgColor, 1, 2)
-            NumPut((alpha << 24) | (NumGet(DllCall("StrPtr", "Str", rgb), "UInt") & 0xFFFFFF), acc, 8, "UInt")
-            wca := Buffer(A_PtrSize=8 ? 24 : 16)
-            NumPut(19, wca, 0, "UInt"), NumPut(acc.Ptr, wca, A_PtrSize=8 ? 8 : 4, "Ptr"), NumPut(acc.Size, wca, A_PtrSize=8 ? 16 : 8, "UPtr")
-            DllCall(p, "Ptr", hwnd, "Ptr", wca.Ptr)
-        }
-    }
-} h{}", w, h), "ClickOverlay")
-    ctrl.OnEvent("Click", Func("disableZenMode"))
-    guiBlur.Show(Format("x{} y{} w{} h{} NoActivate", x, y, w, h))
-    hwnd := guiBlur.Hwnd
-    ex := DllCall("GetWindowLong", "Ptr", hwnd, "Int", -20, "Ptr") | 0x80000
-    DllCall("SetWindowLong", "Ptr", hwnd, "Int", -20, "Ptr", ex)
-    DllCall("SetLayeredWindowAttributes", "Ptr", hwnd, "UInt", 0, "UChar", bgAlpha, "UInt", 0x02)
-    if bgBlurStrength > 0 {
-        p := DllCall("GetProcAddress", "Ptr", DllCall("GetModuleHandle", "Str", "user32"), "AStr", "SetWindowCompositionAttribute", "Ptr")
-        if p {
-            acc := Buffer(16)
-            NumPut(4, acc, 0, "UInt"), NumPut(bgBlurStrength, acc, 4, "UInt")
-            alpha := 255 - bgAlpha
-            rgb := "0x" SubStr(bgColor, 5, 2) SubStr(bgColor, 3, 2) SubStr(bgColor, 1, 2)
-            NumPut((alpha << 24) | (NumGet(DllCall("StrPtr", "Str", rgb), "UInt") & 0xFFFFFF), acc, 8, "UInt")
-            wca := Buffer(A_PtrSize=8 ? 24 : 16)
-            NumPut(19, wca, 0, "UInt"), NumPut(acc.Ptr, wca, A_PtrSize=8 ? 8 : 4, "Ptr"), NumPut(acc.Size, wca, A_PtrSize=8 ? 16 : 8, "UPtr")
+            rgb := "0x" SubStr(bgColor,5,2) SubStr(bgColor,3,2) SubStr(bgColor,1,2)
+            NumPut((alpha<<24)|(NumGet(DllCall("StrPtr","Str",rgb),"UInt")&0xFFFFFF), acc, 8, "UInt")
+            wca := Buffer(A_PtrSize?24:16)
+            NumPut(19, wca, 0, "UInt")
+            NumPut(acc.Ptr, wca, A_PtrSize?8:4, "Ptr")
+            NumPut(acc.Size, wca, A_PtrSize?16:8, "UPtr")
             DllCall(p, "Ptr", hwnd, "Ptr", wca.Ptr)
         }
     }
 }
-
 ; ---------- картинка на монитор ----------
 createImageOverlay(x, y, w, h) {
     global guiImgList, imageBackgroundPath, bgAlpha, overlayTopmost
