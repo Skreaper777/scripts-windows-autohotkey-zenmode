@@ -30,7 +30,7 @@ global hotkeyList_2   := ["F2"]
 global enableEscExit  := true
 
 ; фон‑картинка
-global enableImageBackground := true
+global enableImageBackground := false
 global imageBackgroundPath   := "E:\\pic.jpg"
 
 ; слой‑цвет + blur
@@ -279,13 +279,6 @@ ImageSize(path, &w, &h) {
 
 ; ---------- монитор по точке ----------
 GetMonitorIndex(px,py) {
-    Loop MonitorGetCount() {
-        MonitorGetWorkArea(A_Index,&l,&t,&r,&b)
-        if (px>=l && px<r && py>=t && py<b)
-            return A_Index
-    }
-    return MonitorGetPrimary()
-}(px,py) {
     Loop MonitorGetCount() {
         MonitorGetWorkArea(A_Index,&l,&t,&r,&b)
         if (px>=l && px<r && py>=t && py<b)
