@@ -14,10 +14,10 @@ global enableEscExit := true
 global enableImageBackground := true
 global imageBackgroundPath := "E:\\pic.jpg"
 
-global overlayTopmost := false
+global overlayTopmost := true
 
 global bgColor := "000000"
-global bgAlpha := 250
+global bgAlpha := 220
 global bgBlurStrength := 8
 
 global zen := false
@@ -158,9 +158,7 @@ createBlurOverlay(x, y, w, h) {
     flags := "-Caption +ToolWindow +LastFound" . (overlayTopmost ? " +AlwaysOnTop" : "")
     guiBlur := Gui(flags)
     guiBlur.BackColor := bgColor
-    ; Добавляем невидимый контрол для обработки клика
-    ctrl := guiBlur.AddText("", Format("x0 y0 w{} h{} vClickOverlay", w, h))
-    ctrl.OnEvent("Click", Func("disableZenMode"))
+        ; Обработка клика отключена — выход через ESC или хоткей
     guiBlur.Show(Format("x{} y{} w{} h{} NoActivate", x, y, w, h))
     hwnd := guiBlur.Hwnd
     ; прозрачность слоя
