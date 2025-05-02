@@ -11,7 +11,7 @@ global hotkeyList := ["^!z", "F1"]
 global hotkeyList_2 := ["F2"]
 global enableEscExit := true
 
-global enableImageBackground := true
+global enableImageBackground := false
 global imageBackgroundPath := "E:\\pic.jpg"
 
 global overlayTopmost := true
@@ -169,45 +169,27 @@ createBlurOverlay(x, y, w, h) {
     ex := DllCall("GetWindowLong", "Ptr", hwnd, "Int", -20) | 0x80000
     DllCall("SetWindowLong", "Ptr", hwnd, "Int", -20, "Ptr", ex)
     DllCall("SetLayeredWindowAttributes", "Ptr", hwnd, "UInt", 0, "UChar", bgAlpha, "UInt", 0x02)
-    ; blur
+        ; blur (Windows 10+) — применяем перед прозрачностью
     if bgBlurStrength > 0 {
-        p := DllCall("GetProcAddress", "Ptr", DllCall("GetModuleHandle", "Str", "user32"), "AStr", "SetWindowCompositionAttribute")
-        if p {
-            acc := Buffer(16)
-            NumPut(4, acc, 0, "UInt")
-            NumPut(bgBlurStrength, acc, 4, "UInt")
-            alpha := 255 - bgAlpha
-            rgb := "0x" SubStr(bgColor,5,2) SubStr(bgColor,3,2) SubStr(bgColor,1,2)
-            NumPut((alpha<<24)|(NumGet(DllCall("StrPtr","Str",rgb),"UInt")&0xFFFFFF), acc, 8, "UInt")
-            wca := Buffer(A_PtrSize?24:16)
-            NumPut(19, wca, 0, "UInt")
-            NumPut(acc.Ptr, wca, A_PtrSize?8:4, "Ptr")
-            NumPut(acc.Size, wca, A_PtrSize?16:8, "UPtr")
-            DllCall(p, "Ptr", hwnd, "Ptr", wca.Ptr)
+        pSetWCA := DllCall("GetProcAddress", "Ptr", DllCall("GetModuleHandle", "Str", "user32"), "AStr", "SetWindowCompositionAttribute", "Ptr")
+        if pSetWCA {
+            ; ACCENT_POLICY
+            acc := Buffer(16, 0)
+            NumPut("UInt", 4, acc, 0)                     ; ACCENT_ENABLE_BLURBEHIND
+            NumPut("UInt", 0, acc, 4)                     ; AccentFlags = 0
+            ; GradientColor can define color overlay if needed
+
+            ; WINDOWCOMPOSITIONATTRIBDATA
+            wcaSize := A_PtrSize = 8 ? 24 : 16
+            wca := Buffer(wcaSize, 0)
+            NumPut("UInt", 19, wca, 0)                    ; WCA_ACCENT_POLICY
+            NumPut("Ptr", acc.Ptr, wca, A_PtrSize = 8 ? 8 : 4)
+            NumPut("UPtr", acc.Size, wca, A_PtrSize = 8 ? 16 : 8)
+
+            ; Сначала размываем
+            DllCall(pSetWCA, "Ptr", hwnd, "Ptr", wca.Ptr)
         }
     }
+    ; затем прозрачность
+    DllCall("SetLayeredWindowAttributes", "Ptr", hwnd, "UInt", 0, "UChar", bgAlpha, "UInt", 0x02)
 }
-; ---------- картинка на монитор ----------
-createImageOverlay(x, y, w, h) {
-    global guiImgList, imageBackgroundPath, bgAlpha, overlayTopmost
-    if !FileExist(imageBackgroundPath)
-        return
-    flags := "-Caption +ToolWindow +LastFound" . (overlayTopmost ? " +AlwaysOnTop" : "")
-    imgGui := Gui(flags)
-    imgGui.AddPicture(Format("x0 y0 w{} h{} +Center", w, h), imageBackgroundPath)
-    imgGui.Show(Format("x{} y{} w{} h{} NoActivate", x, y, w, h))
-    DllCall("SetLayeredWindowAttributes", "Ptr", imgGui.Hwnd, "UInt", 0, "UChar", bgAlpha, "UInt", 0x02)
-    guiImgList.Push(imgGui)
-}
-
-; ---------- монитор по координате ----------
-GetMonitorIndex(px, py) {
-    loop MonitorGetCount() {
-        MonitorGetWorkArea(A_Index, &l, &t, &r, &b)
-        if px >= l && px < r && py >= t && py < b
-            return A_Index
-    }
-    return MonitorGetPrimary()
-}
-
-
