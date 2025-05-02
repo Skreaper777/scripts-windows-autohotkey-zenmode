@@ -4,50 +4,38 @@
 ; ---------- ГЛОБАЛЬНЫЕ ФУНКЦИИ GDI+ ----------
 global GdipStartup, GdipShutdown, IsFunc
 
-
 ; ---------- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ----------
 global marginH := 0.30
-
 global marginV := 0.05
-
 global marginH_2 := 0.35
-
 global marginV_2 := 0.15
 
-global hotkeyList := ["^!z","F1"]
-
+global hotkeyList := ["^!z", "F1"]
 global hotkeyList_2 := ["F2"]
-
 global enableEscExit := true
 
 global enableImageBackground := true
-
 global imageBackgroundPath := "E:\\pic.jpg"
 
-global overlayTopmost := true
+global overlayTopmost := false
 
 global bgColor := "000000"
-
 global bgAlpha := 250
-
 global bgBlurStrength := 8
 
 global zen := false
-
 global savedWin := Map()
 
 global guiBlur := ""
-
 global guiImgList := []
 
 global altPressed := false
-
 global wasZenDuringAltTab := false
 
 ; ---------------------- ИНИЦИАЛИЗАЦИЯ GDI+ ----------------------
 if !DllCall("GetModuleHandle", "Str", "gdiplus.dll")
     GdipStartup(0)
-OnExit("Shutdown")
+OnExit(Func("Shutdown"))
 
 ; =============================================================
 ;                 РЕГИСТРАЦИЯ HOTKEY'ев
@@ -63,7 +51,7 @@ registerHotkeys() {
 
     Hotkey("^!x", (*) => disableZenMode())
     if enableEscExit
-        Hotkey("*Esc", escExit)
+        Hotkey("Esc", escExit)
 }
 registerHotkeys()
 
@@ -109,16 +97,16 @@ toggleZenMode(hMargin := marginH, vMargin := marginV) {
         TrayTip "Zen Mode", "❌ Активное окно не найдено", 1
         return
     }
-    WinGetPos(&ox,&oy,&ow,&oh, hwnd)
+    WinGetPos(&ox, &oy, &ow, &oh, hwnd)
     wasMax := WinGetMinMax(hwnd)
-    savedWin := Map("id",hwnd,"x",ox,"y",oy,"w",ow,"h",oh,"max",wasMax)
+    savedWin := Map("id", hwnd, "x", ox, "y", oy, "w", ow, "h", oh, "max", wasMax)
     if (wasMax = 1) {
         WinRestore(hwnd)
         Sleep 50
     }
     centerX := ox + ow//2, centerY := oy + oh//2
     mon := GetMonitorIndex(centerX, centerY)
-    MonitorGetWorkArea(mon,&mL,&mT,&mR,&mB)
+    MonitorGetWorkArea(mon, &mL, &mT, &mR, &mB)
     monW := mR - mL, monH := mB - mT
     newW := Round(monW * (1 - hMargin * 2))
     newH := Round(monH * (1 - vMargin * 2))
@@ -141,7 +129,7 @@ disableZenMode() {
             if (savedWin["max"] = 1)
                 WinMaximize(hwnd)
             else
-                WinMove(savedWin["x"],savedWin["y"],savedWin["w"],savedWin["h"], hwnd)
+                WinMove(savedWin["x"], savedWin["y"], savedWin["w"], savedWin["h"], hwnd)
             WinSetAlwaysOnTop(0, hwnd)
         }
     }
@@ -163,24 +151,22 @@ createBackdropLayers() {
     createBlurOverlay(vx, vy, vw, vh)
     if enableImageBackground && FileExist(imageBackgroundPath) {
         loop MonitorGetCount() {
-            MonitorGetWorkArea(A_Index,&l,&t,&r,&b)
+            MonitorGetWorkArea(A_Index, &l, &t, &r, &b)
             createImageOverlay(l, t, r - l, b - t)
         }
     }
 }
 
 ; ---------- слой цвета + клик для выхода ----------
-createBlurOverlay(x,y,w,h) {
+createBlurOverlay(x, y, w, h) {
     global guiBlur, bgColor, bgAlpha, bgBlurStrength, overlayTopmost
     if IsObject(guiBlur)
         guiBlur.Destroy()
     flags := "-Caption +ToolWindow +LastFound" . (overlayTopmost ? " +AlwaysOnTop" : "")
     guiBlur := Gui(flags)
     guiBlur.BackColor := bgColor
-    controlID := "ClickOverlay"
-    ctrl := guiBlur.AddText(Format("x0 y0 w{} h{}", w, h), controlID)
-    ctrl.OnEvent("Click", Func("disableZenMode"))
     guiBlur.Show(Format("x{} y{} w{} h{} NoActivate", x, y, w, h))
+    guiBlur.OnEvent("Click", Func("disableZenMode"))
     hwnd := guiBlur.Hwnd
     ex := DllCall("GetWindowLong", "Ptr", hwnd, "Int", -20, "Ptr") | 0x80000
     DllCall("SetWindowLong", "Ptr", hwnd, "Int", -20, "Ptr", ex)
@@ -191,17 +177,17 @@ createBlurOverlay(x,y,w,h) {
             acc := Buffer(16)
             NumPut(4, acc, 0, "UInt"), NumPut(bgBlurStrength, acc, 4, "UInt")
             alpha := 255 - bgAlpha
-            rgb := "0x" SubStr(bgColor,5,2) SubStr(bgColor,3,2) SubStr(bgColor,1,2)
-            NumPut((alpha<<24)|(NumGet(DllCall("StrPtr", "Str", rgb), "UInt")&0xFFFFFF), acc, 8, "UInt")
-            wca := Buffer(A_PtrSize=8?24:16)
-            NumPut(19, wca, 0, "UInt"), NumPut(acc.Ptr, wca, A_PtrSize=8?8:4, "Ptr"), NumPut(acc.Size, wca, A_PtrSize=8?16:8, "UPtr")
+            rgb := "0x" SubStr(bgColor, 5, 2) SubStr(bgColor, 3, 2) SubStr(bgColor, 1, 2)
+            NumPut((alpha << 24) | (NumGet(DllCall("StrPtr", "Str", rgb), "UInt") & 0xFFFFFF), acc, 8, "UInt")
+            wca := Buffer(A_PtrSize=8 ? 24 : 16)
+            NumPut(19, wca, 0, "UInt"), NumPut(acc.Ptr, wca, A_PtrSize=8 ? 8 : 4, "Ptr"), NumPut(acc.Size, wca, A_PtrSize=8 ? 16 : 8, "UPtr")
             DllCall(p, "Ptr", hwnd, "Ptr", wca.Ptr)
         }
     }
 }
 
 ; ---------- картинка на монитор ----------
-createImageOverlay(x,y,w,h) {
+createImageOverlay(x, y, w, h) {
     global guiImgList, imageBackgroundPath, bgAlpha, overlayTopmost
     if !FileExist(imageBackgroundPath)
         return
@@ -214,10 +200,10 @@ createImageOverlay(x,y,w,h) {
 }
 
 ; ---------- монитор по координате ----------
-GetMonitorIndex(px,py) {
+GetMonitorIndex(px, py) {
     loop MonitorGetCount() {
-        MonitorGetWorkArea(A_Index,&l,&t,&r,&b)
-        if px>=l && px<r && py>=t && py<b
+        MonitorGetWorkArea(A_Index, &l, &t, &r, &b)
+        if px >= l && px < r && py >= t && py < b
             return A_Index
     }
     return MonitorGetPrimary()
