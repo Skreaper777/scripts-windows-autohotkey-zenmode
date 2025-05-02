@@ -5,7 +5,7 @@
 ;  Zen-Mode v6.6-blur  — Alt-Tab «handoff» + DWM blur
 ; =========================================
 ;  • F1 / ^!z / ^F11 / F8 / !F2  → вкл/выкл Zen.
-;  • Alt↓ снимает Zen, Alt↑ включает его на новом окне.
+;  • Alt↓ + Tab снимает Zen, Alt↑ включает его на новом окне.
 ;  • Шторка: полноэкранная, размытая, полупрозрачная.
 ;  • Поддержка maximized и нескольких мониторов.
 ; -----------------------------------------
@@ -34,9 +34,18 @@ Hotkey("^!x", (*) => disableZenMode())      ; аварийный выход
     global zen, wasZenDuringAlt
     if zen {
         wasZenDuringAlt := true
-        disableZenMode()
-    } else
+    } else {
         wasZenDuringAlt := false
+    }
+}
+
+~*Tab:: {
+    global zen, wasZenDuringAlt
+    if GetKeyState("Alt", "P") && zen {
+        wasZenDuringAlt := true
+        disableZenMode()
+        Sleep 50
+    }
 }
 
 ~Alt Up:: {
