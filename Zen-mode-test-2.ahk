@@ -11,14 +11,14 @@ global hotkeyList := ["^!z", "F1"]
 global hotkeyList_2 := ["F2"]
 global enableEscExit := true
 
-global enableImageBackground := false
+global enableImageBackground := true
 global imageBackgroundPath := "E:\\pic.jpg"
 
 global overlayTopmost := true
 
 global bgColor := "000000"
 global bgAlpha := 200
-global bgBlurStrength := 8
+global bgBlurStrength := 1
 
 global zen := false
 global savedWin := Map()
@@ -162,14 +162,13 @@ createBlurOverlay(x, y, w, h) {
     flags := "-Caption +ToolWindow +LastFound" . (overlayTopmost ? " +AlwaysOnTop" : "")
     guiBlur := Gui(flags)
     guiBlur.BackColor := bgColor
-        ; Обработка клика отключена — выход через ESC или хоткей
+    ; Обработка клика отключена — выход через ESC или хоткей
     guiBlur.Show(Format("x{} y{} w{} h{} NoActivate", x, y, w, h))
     hwnd := guiBlur.Hwnd
     ; прозрачность слоя
     ex := DllCall("GetWindowLong", "Ptr", hwnd, "Int", -20) | 0x80000
     DllCall("SetWindowLong", "Ptr", hwnd, "Int", -20, "Ptr", ex)
-    DllCall("SetLayeredWindowAttributes", "Ptr", hwnd, "UInt", 0, "UChar", bgAlpha, "UInt", 0x02)
-        ; blur (Windows 10+) — применяем перед прозрачностью
+    ; blur (Windows 10+) — применяем перед прозрачностью
     if bgBlurStrength > 0 {
         pSetWCA := DllCall("GetProcAddress", "Ptr", DllCall("GetModuleHandle", "Str", "user32"), "AStr", "SetWindowCompositionAttribute", "Ptr")
         if pSetWCA {
@@ -192,4 +191,27 @@ createBlurOverlay(x, y, w, h) {
     }
     ; затем прозрачность
     DllCall("SetLayeredWindowAttributes", "Ptr", hwnd, "UInt", 0, "UChar", bgAlpha, "UInt", 0x02)
+}
+
+; ---------- картинка на монитор ----------
+createImageOverlay(x, y, w, h) {
+    global guiImgList, imageBackgroundPath, bgAlpha, overlayTopmost
+    if !FileExist(imageBackgroundPath)
+        return
+    flags := "-Caption +ToolWindow +LastFound" . (overlayTopmost ? " +AlwaysOnTop" : "")
+    imgGui := Gui(flags)
+    imgGui.AddPicture(Format("x0 y0 w{} h{} +Center", w, h), imageBackgroundPath)
+    imgGui.Show(Format("x{} y{} w{} h{} NoActivate", x, y, w, h))
+    DllCall("SetLayeredWindowAttributes", "Ptr", imgGui.Hwnd, "UInt", 0, "UChar", bgAlpha, "UInt", 0x02)
+    guiImgList.Push(imgGui)
+}
+
+; ---------- монитор по координате ----------
+GetMonitorIndex(px, py) {
+    Loop MonitorGetCount() {
+        MonitorGetWorkArea(A_Index, &l, &t, &r, &b)
+        if (px >= l && px < r && py >= t && py < b)
+            return A_Index
+    }
+    return MonitorGetPrimary()
 }
