@@ -5,7 +5,7 @@
 ;  Zen-Mode v6.6-blur  — Alt-Tab «handoff» + DWM blur
 ; =========================================
 ;  • F1 / ^!z / ^F11 / F8 / !F2  → вкл/выкл Zen.
-;  • Alt↓ + Tab снимает Zen, Alt↑ включает его на новом окне.
+;  • Alt↓ + Tab снимает Zen, Alt↑ (после Tab) включает его на новом окне.
 ;  • Шторка: полноэкранная, размытая, полупрозрачная.
 ;  • Поддержка maximized и нескольких мониторов.
 ; -----------------------------------------
@@ -18,10 +18,12 @@ global overlayAlpha := 240            ; 0-255 (≈94 %)
 global hotkeyList := ["F1"]
 
 ; ---------- СЛУЖЕБНЫЕ ----------
-global zen             := false
-global savedWin        := Map()
-global overlayGui      := ""
-global wasZenDuringAlt := false
+global zen                     := false
+global savedWin                := Map()
+global overlayGui              := ""
+; флаги для обработки Alt-Tab
+global altHeldDuringZen        := false   ; Alt зажат в Zen Mode
+global tabPressedDuringAlt     := false   ; Tab был нажат после Alt
 
 ; ---------- ГОРЯЧИЕ КЛАВИШИ ----------
 ToggleZen(*) => toggleZenMode()
@@ -31,29 +33,36 @@ Hotkey("^!x", (*) => disableZenMode())      ; аварийный выход
 
 ; --- Alt-Tab hand-off ---
 ~Alt:: {
-    global zen, wasZenDuringAlt
+    global zen, altHeldDuringZen, tabPressedDuringAlt
     if zen {
-        wasZenDuringAlt := true
+        altHeldDuringZen := true
+        tabPressedDuringAlt := false
     } else {
-        wasZenDuringAlt := false
+        altHeldDuringZen := false
     }
 }
 
 ~*Tab:: {
-    global zen, wasZenDuringAlt
+    global zen, altHeldDuringZen, tabPressedDuringAlt
     if GetKeyState("Alt", "P") && zen {
-        wasZenDuringAlt := true
+        tabPressedDuringAlt := true
         disableZenMode()
         Sleep 50
     }
 }
 
 ~Alt Up:: {
-    global wasZenDuringAlt
-    if wasZenDuringAlt {
-        wasZenDuringAlt := false
+    global altHeldDuringZen, tabPressedDuringAlt
+    if altHeldDuringZen && tabPressedDuringAlt {
+        ; сбрасываем флаги и возвращаем Zen на новом окне
+        altHeldDuringZen := false
+        tabPressedDuringAlt := false
         Sleep 75
         toggleZenMode()
+    } else {
+        ; просто сброс флагов без возвращения
+        altHeldDuringZen := false
+        tabPressedDuringAlt := false
     }
 }
 
