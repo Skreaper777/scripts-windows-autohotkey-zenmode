@@ -1,9 +1,6 @@
 ﻿#Requires AutoHotkey v2.0
 #SingleInstance Force
 
-; ---------- ГЛОБАЛЬНЫЕ ФУНКЦИИ GDI+ ----------
-global GdipStartup, GdipShutdown, IsFunc
-
 ; ---------- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ----------
 global marginH := 0.30
 global marginV := 0.05
@@ -32,10 +29,6 @@ global guiImgList := []
 global altPressed := false
 global wasZenDuringAltTab := false
 
-; ---------------------- ИНИЦИАЛИЗАЦИЯ GDI+ ----------------------
-if !DllCall("GetModuleHandle", "Str", "gdiplus.dll")
-    GdipStartup(0)
-OnExit(Func("Shutdown"))
 
 ; =============================================================
 ;                 РЕГИСТРАЦИЯ HOTKEY'ев
@@ -209,9 +202,4 @@ GetMonitorIndex(px, py) {
     return MonitorGetPrimary()
 }
 
-; ---------- завершение GDI+ ----------
-Shutdown(*) {
-    if IsFunc("GdipShutdown")
-        GdipShutdown()
-    ExitApp()
-}
+
