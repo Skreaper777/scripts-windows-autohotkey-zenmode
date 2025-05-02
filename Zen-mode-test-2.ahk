@@ -17,7 +17,7 @@ global imageBackgroundPath := "E:\\pic.jpg"
 global overlayTopmost := true
 
 global bgColor := "000000"
-global bgAlpha := 220
+global bgAlpha := 200
 global bgBlurStrength := 8
 
 global zen := false
@@ -140,14 +140,18 @@ disableZenMode() {
 ; =============================================================
 createBackdropLayers() {
     global enableImageBackground, imageBackgroundPath
-    vx := SysGet(76), vy := SysGet(77), vw := SysGet(78), vh := SysGet(79)
-    createBlurOverlay(vx, vy, vw, vh)
+
+    ; Сначала рисуем фоновые картинки за Zen Mode
     if enableImageBackground && FileExist(imageBackgroundPath) {
         loop MonitorGetCount() {
             MonitorGetWorkArea(A_Index, &l, &t, &r, &b)
             createImageOverlay(l, t, r - l, b - t)
         }
     }
+
+    ; Затем накладываем чёрный цвет и размытие на всю виртуальную поверхность
+    vx := SysGet(76), vy := SysGet(77), vw := SysGet(78), vh := SysGet(79)
+    createBlurOverlay(vx, vy, vw, vh)
 }
 
 ; ---------- слой цвета + клик для выхода ----------
